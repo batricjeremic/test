@@ -78,3 +78,23 @@ The wider lesson is recorded here because it will recur: every layer of this
 service was tested against a fixture of what we believed the outside world
 returns. The board's Zod schemas for Azure DevOps responses carry exactly the
 same risk, and the first live board is where that gets found out.
+
+## Postscript: it recurred immediately
+
+The first deployment of this decision failed for the reason predicted two
+paragraphs above. `connectionData` is a preview resource, so
+`api-version=7.1` is refused with a `400` telling you to supply `-preview`.
+Every request came back `introspection-unavailable`, which reads as "Azure
+DevOps is down" and was in fact "our URL is wrong".
+
+There was a test pinning that URL. It pinned the wrong version, because it
+was written from the same belief as the code. A test cannot referee a
+disagreement between us and the outside world when only one side is in the
+room.
+
+Two changes came out of it. A non-401/403 `4xx` from introspection is now
+logged as _our request being wrong_ rather than blending into the outage
+case — the two are indistinguishable to a caller but not to whoever is
+reading the log. And the fixture in `introspect.test.ts` is now a copy of a
+real response rather than an invention, with a comment saying so, which is
+the only part of the arrangement that was ever going to catch this.

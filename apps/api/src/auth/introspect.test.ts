@@ -32,11 +32,18 @@ const fixedClock = (
 
 const CALL = { traceId: 'trace-1' };
 
+/**
+ * Copied from a live `connectionData` response, backslash and all, rather
+ * than invented. An invented fixture is how the api-version bug survived
+ * a green suite: the test agreed with the code because both came from the
+ * same guess about what Azure DevOps returns.
+ */
 const connectionData = (over: Record<string, unknown> = {}) => ({
   authenticatedUser: {
     id: '867d7d0d-30c5-6980-addc-083d1b4f3a98',
-    subjectDescriptor: 'aad.YmFzZTY0LWRlc2NyaXB0b3I',
-    descriptor: 'Microsoft.IdentityModel.Claims.ClaimsIdentity;legacy',
+    subjectDescriptor: 'aad.ODY3ZDdkMGQtMzBjNS03OTgwLWFkZGMtMDgzZDFiNGYzYTk4',
+    descriptor:
+      'Microsoft.IdentityModel.Claims.ClaimsIdentity;3a7ce086-472b-46b3-aa95-b978c322b880\\nikola.jeremic@expertgroup.rs',
     ...over,
   },
 });
@@ -67,11 +74,17 @@ describe('createIntrospectionVerifier', () => {
     const verified = await verifier.verify('opaque-token', CALL);
 
     // The modern descriptor wins: it is the one System.AssignedTo returns.
-    expect(verified.descriptor).toBe('aad.YmFzZTY0LWRlc2NyaXB0b3I');
+    expect(verified.descriptor).toBe(
+      'aad.ODY3ZDdkMGQtMzBjNS03OTgwLWFkZGMtMDgzZDFiNGYzYTk4',
+    );
     expect(verified.id).toBe('867d7d0d-30c5-6980-addc-083d1b4f3a98');
     expect(request).toHaveBeenCalledTimes(1);
+    // The -preview flag is load-bearing: without it Azure DevOps answers
+    // 400 and every sign-in fails. This assertion was written from belief
+    // once already and pinned the wrong version; the value below is copied
+    // from a live call, not from the documentation.
     expect(request.mock.calls[0]?.[0].url).toBe(
-      'https://dev.azure.com/expertgroup/_apis/connectionData?api-version=7.1',
+      'https://dev.azure.com/expertgroup/_apis/connectionData?api-version=7.1-preview',
     );
   });
 
@@ -84,7 +97,7 @@ describe('createIntrospectionVerifier', () => {
     const verified = await verifier.verify('opaque-token', CALL);
 
     expect(verified.descriptor).toBe(
-      'Microsoft.IdentityModel.Claims.ClaimsIdentity;legacy',
+      'Microsoft.IdentityModel.Claims.ClaimsIdentity;3a7ce086-472b-46b3-aa95-b978c322b880\\nikola.jeremic@expertgroup.rs',
     );
   });
 
@@ -108,6 +121,28 @@ describe('createIntrospectionVerifier', () => {
       (error: unknown) =>
         isTokenRejected(error) && error.rejection === 'rejected-by-issuer',
     );
+  });
+
+  // The bug that got to production: connectionData is a preview resource,
+  // so a plain api-version=7.1 is refused with a 400 and every sign-in
+  // fails. From outside it is indistinguishable from an outage, so the log
+  // has to say whose fault it is.
+  it('names a 4xx as our request being wrong, not an outage', async () => {
+    const errors: string[] = [];
+    const logger = silentLogger();
+    (logger as { error: (message: string) => void }).error = (message) => {
+      errors.push(message);
+    };
+    const { verifier } = build(async () => ({ status: 400, body: {} }), {
+      logger,
+    });
+
+    await expect(verifier.verify('fine', CALL)).rejects.toSatisfy(
+      (error: unknown) =>
+        isTokenRejected(error) &&
+        error.rejection === 'introspection-unavailable',
+    );
+    expect(errors).toContain('token introspection request is wrong');
   });
 
   // An outage is not a bad caller. Merging them would have us tell a

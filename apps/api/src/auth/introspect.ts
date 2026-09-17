@@ -26,8 +26,17 @@ import type { CallOptions, Clock, Logger } from '../ports.js';
 import { TokenRejectedError, type VerifiedToken } from './token.js';
 import type { TokenVerifier } from './token.js';
 
-/** Azure DevOps answers this with the caller it recognises. */
-export const CONNECTION_DATA_PATH = '_apis/connectionData?api-version=7.1';
+/**
+ * Azure DevOps answers this with the caller it recognises.
+ *
+ * `-preview` is not optional and not cosmetic: `connectionData` is still a
+ * preview resource, and a plain `api-version=7.1` is refused with a 400
+ * telling you to supply the flag. We shipped it without, every request came
+ * back `introspection-unavailable`, and the test that pinned this URL pinned
+ * the wrong version because it was written from the same belief as the code.
+ */
+export const CONNECTION_DATA_PATH =
+  '_apis/connectionData?api-version=7.1-preview';
 
 /** An introspection result is trusted this long before it is re-checked. */
 export const DEFAULT_INTROSPECTION_TTL_MS = 5 * 60_000;
@@ -139,6 +148,18 @@ export function createIntrospectionVerifier(
         });
       }
       if (status < 200 || status >= 300) {
+        // A 4xx that is not 401/403 is Azure DevOps refusing the REQUEST,
+        // not the caller: a wrong api-version, a wrong path, a wrong org.
+        // That is our bug, and it looks exactly like an outage from the
+        // outside, so it gets a log line that says whose fault it is —
+        // the 400 on a missing `-preview` flag cost us a deploy to find.
+        if (status >= 400 && status < 500) {
+          options.logger.error('token introspection request is wrong', {
+            traceId: callOptions.traceId,
+            status,
+            url,
+          });
+        }
         throw new TokenRejectedError('introspection-unavailable', {
           details: { status },
         });
