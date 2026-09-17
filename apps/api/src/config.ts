@@ -215,6 +215,45 @@ export function parseConfig(source: EnvSource): AppConfig {
 }
 
 /**
+ * What a migration run needs, which is a database and a log level.
+ *
+ * Deliberately narrower than `AppConfig`. Applying migrations has no
+ * business demanding an Azure DevOps token or a Redis URL, and requiring
+ * them means a pipeline step that only touches the schema has to be handed
+ * production credentials it will never use.
+ */
+export interface MigrationConfig {
+  readonly logLevel: LogLevel;
+  readonly postgres: {
+    readonly url: string;
+    readonly requestTimeoutMs: number;
+  };
+}
+
+const migrationEnvSchema = envSchema.pick({
+  LOG_LEVEL: true,
+  DATABASE_URL: true,
+  DATABASE_REQUEST_TIMEOUT_MS: true,
+});
+
+/** Like `parseConfig`, but only over the variables a migration uses. */
+export function parseMigrationConfig(source: EnvSource): MigrationConfig {
+  const result = migrationEnvSchema.safeParse(source);
+  if (!result.success) {
+    const issues = result.error.issues.map(describeIssue).sort();
+    throw new ConfigError([...new Set(issues)]);
+  }
+  const env = result.data;
+  return {
+    logLevel: env.LOG_LEVEL,
+    postgres: {
+      url: env.DATABASE_URL,
+      requestTimeoutMs: env.DATABASE_REQUEST_TIMEOUT_MS,
+    },
+  };
+}
+
+/**
  * A view of the configuration that is safe to log: no credentials, no
  * connection strings, hosts only.
  */

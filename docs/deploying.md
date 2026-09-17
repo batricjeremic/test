@@ -174,6 +174,12 @@ the new revision takes traffic:
 DATABASE_URL=<postgres-url> pnpm db:migrate
 ```
 
+`DATABASE_URL` is the only variable a migration run needs. It validates its
+own narrow slice of the environment rather than the whole application config,
+so the step never has to be handed an Azure DevOps token or a Redis URL it
+will not use. `LOG_LEVEL` and `DATABASE_REQUEST_TIMEOUT_MS` are honoured if
+set.
+
 The runner takes an advisory lock so two concurrent pipeline runs cannot race,
 and refuses to run if an already-applied migration's checksum changed.
 

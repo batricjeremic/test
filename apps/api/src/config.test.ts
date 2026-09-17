@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_CACHE_TTL_SECONDS,
   parseConfig,
+  parseMigrationConfig,
   redactConfig,
   SECRET_ENV_KEYS,
 } from './config.js';
@@ -121,5 +122,61 @@ describe('redactConfig', () => {
     expect(serialised).not.toContain('hunter2');
     expect(redacted['postgresHost']).toBe('db.internal:5432');
     expect(redacted['adoOrgHost']).toBe('dev.azure.com');
+  });
+});
+
+describe('parseMigrationConfig', () => {
+  // Applying migrations touches the schema and nothing else. Demanding the
+  // full application configuration meant the pipeline step had to be handed
+  // an Azure DevOps token and a Redis URL it never used — and failing that,
+  // the first real deployment aborted before reaching the database.
+  it('needs only a database url', () => {
+    const config = parseMigrationConfig({
+      DATABASE_URL: 'postgres://board:hunter2@db.internal:5432/board',
+    });
+
+    expect(config.postgres.url).toBe(
+      'postgres://board:hunter2@db.internal:5432/board',
+    );
+    expect(config.postgres.requestTimeoutMs).toBe(5_000);
+    expect(config.logLevel).toBe('info');
+  });
+
+  it('does not require the Azure DevOps or Redis settings', () => {
+    expect(() =>
+      parseMigrationConfig({ DATABASE_URL: 'postgres://u:p@h:5432/d' }),
+    ).not.toThrow();
+
+    // The full application config still demands all of them.
+    expect(() =>
+      parseConfig({ DATABASE_URL: 'postgres://u:p@h:5432/d' }),
+    ).toThrow(ConfigError);
+  });
+
+  it('still rejects a missing or malformed database url', () => {
+    expect(() => parseMigrationConfig({})).toThrow(ConfigError);
+    expect(() => parseMigrationConfig({ DATABASE_URL: 'not-a-url' })).toThrow(
+      ConfigError,
+    );
+  });
+
+  it('never names the database url value in the error', () => {
+    try {
+      parseMigrationConfig({ DATABASE_URL: 'mysql://u:hunter2@h/d' });
+      throw new Error('expected a ConfigError');
+    } catch (error) {
+      expect(String(error)).not.toContain('hunter2');
+      expect(String(error)).toContain('value not shown');
+    }
+  });
+
+  it('honours an explicit timeout and log level', () => {
+    const config = parseMigrationConfig({
+      DATABASE_URL: 'postgres://u:p@h:5432/d',
+      DATABASE_REQUEST_TIMEOUT_MS: '60000',
+      LOG_LEVEL: 'debug',
+    });
+    expect(config.postgres.requestTimeoutMs).toBe(60_000);
+    expect(config.logLevel).toBe('debug');
   });
 });

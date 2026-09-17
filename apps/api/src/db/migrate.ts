@@ -17,7 +17,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-import { parseConfig, type AppConfig } from '../config.js';
+import { parseMigrationConfig, type MigrationConfig } from '../config.js';
 import { ConfigError, toAppError } from '../errors.js';
 import { createLogger, newTraceId } from '../logging.js';
 import type { CallOptions, Logger } from '../ports.js';
@@ -258,9 +258,9 @@ export async function main(
     ]);
   }
   const traceId = newTraceId();
-  let config: AppConfig;
+  let config: MigrationConfig;
   try {
-    config = parseConfig(env);
+    config = parseMigrationConfig(env);
   } catch (error) {
     const failure = toAppError(error);
     createLogger({ level: 'info', traceId, name: 'db-migrate' }).error(
