@@ -148,6 +148,10 @@ stages:
     parameters:
       stageName: Deploy
       displayName: Deploy
-      environmentName: sprintboard
+      # The project's existing `production` environment, deliberately: these
+      # resources live in the production subscription, so deploys go through
+      # the approval check already configured there rather than around it via
+      # a new ungated environment.
+      environmentName: production
       branch: refs/heads/development
       variableGroup: sprintboard
