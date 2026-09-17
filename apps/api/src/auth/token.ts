@@ -165,7 +165,12 @@ export type TokenRejection =
   | 'bad-signature'
   | 'unknown-key'
   | 'keys-unavailable'
-  | 'claims-invalid';
+  | 'claims-invalid'
+  // Introspection (see introspect.ts): Azure DevOps was asked and said no,
+  // or could not be asked at all. The two are different incidents — one is
+  // a bad caller, the other is an outage — so they are not merged.
+  | 'rejected-by-issuer'
+  | 'introspection-unavailable';
 
 const rejectionOf = (error: unknown): TokenRejection => {
   const code =

@@ -16,11 +16,9 @@
  */
 import { createAdoClient } from './ado/index.js';
 import {
-  ADO_RESOURCE_AUDIENCE,
-  ADO_TOKEN_ISSUER,
-  ADO_TOKEN_JWKS_URI,
   createAclResolver,
-  createTokenVerifier,
+  createIntrospectionVerifier,
+  createUndiciIntrospectionRequest,
   type TokenVerifier,
 } from './auth/index.js';
 import {
@@ -240,14 +238,19 @@ export function createContainer(options: ContainerOptions): AppContainer {
       timeoutMs: config.ado.requestTimeoutMs,
     });
 
+  // Validated by asking Azure DevOps, not by parsing the token: what
+  // SDK.getAccessToken() issues is not a JWT, and the JWT verifier
+  // rejected every real request as malformed. See introspect.ts and
+  // ADR 0007. createTokenVerifier stays available for a deployment whose
+  // hub is handed a genuine JWT instead.
   const verifier =
     overrides.verifier ??
-    createTokenVerifier({
-      issuer: ADO_TOKEN_ISSUER,
-      audience: ADO_RESOURCE_AUDIENCE,
-      jwksUri: ADO_TOKEN_JWKS_URI,
-      jwksTimeoutMs: config.http.requestTimeoutMs,
+    createIntrospectionVerifier({
+      orgUrl: config.ado.orgUrl,
+      request: createUndiciIntrospectionRequest(),
+      timeoutMs: config.http.requestTimeoutMs,
       clock,
+      logger,
     });
 
   const invalidator =

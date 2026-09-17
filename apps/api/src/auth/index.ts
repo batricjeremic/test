@@ -13,6 +13,7 @@
  */
 export * from './identity.js';
 export * from './token.js';
+export * from './introspect.js';
 export * from './acl.js';
 export * from './trim.js';
 export * from './plugin.js';
