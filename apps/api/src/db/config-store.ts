@@ -287,7 +287,7 @@ export class PostgresConfigStore implements ConfigStore {
     return this.db.transaction(async (tx) => {
       await tx.execute(
         `DELETE FROM canonical_column
-          WHERE board_id = $1 AND id <> ALL($2::uuid[])`,
+          WHERE board_id = $1 AND id <> ALL($2::text[])`,
         [boardId, keptIds],
         options,
       );

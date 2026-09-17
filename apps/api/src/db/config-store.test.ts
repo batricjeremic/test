@@ -205,7 +205,10 @@ describe('canonical columns', () => {
       options,
     );
     expect(columns).toHaveLength(1);
-    expect(db.sqlAt(1)).toContain('id <> ALL($2::uuid[])');
+    // text[], not uuid[]: the ids are slugs the admin screen mints, and
+    // this very test passed 'c1' against a uuid cast for months because
+    // the fake database casts nothing. See migration 0002.
+    expect(db.sqlAt(1)).toContain('id <> ALL($2::text[])');
     expect(db.paramsAt(1)).toEqual(['b1', ['c1']]);
     expect(db.sqlAt(2)).toContain('ON CONFLICT (id) DO UPDATE');
   });
