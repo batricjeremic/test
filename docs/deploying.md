@@ -323,8 +323,15 @@ That writes `expertgroup.cross-project-sprint-board-0.1.0.vsix`.
 3. On the extension row: **⋯** → **Share/Unshare** → add your organisation
 4. In Azure DevOps: **Organization settings** → **Extensions** → **Shared** tab
    → your extension → **Install**
-5. Open **Boards**. The hub appears in the group; the admin screen appears under
-   the settings contribution.
+5. The extension contributes **two separate screens, in two different places**:
+
+   | Screen    | Where                        | Called                       |
+   | --------- | ---------------------------- | ---------------------------- |
+   | The board | **Boards**, inside a project | Cross-project board          |
+   | Admin     | **Project settings**         | Cross-project board settings |
+
+   The admin screen is under Project settings, **not** under Boards. Looking
+   for it in the Boards menu is the first wrong turn everyone takes.
 
 The first load asks for consent to `vso.work_write` and `vso.project`. Nothing
 else is requested.
@@ -334,7 +341,8 @@ else is requested.
 Do this in the admin screen, not with curl — it is the screen whose whole job is
 making misconfiguration visible.
 
-0. **Set the board API endpoint.** On a fresh installation the panel says no
+0. **Set the board API endpoint**, in _Project settings → Cross-project board
+   settings_. On a fresh installation the panel says no
    endpoint is set and that the hub is falling back to the build default —
    paste your tunnel or Container Apps URL and save. It takes effect the next
    time the hub is opened. Nothing else on the screen will work until this is
