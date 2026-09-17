@@ -117,6 +117,8 @@ work item content; Redis holds card snapshots for 60 seconds.
 
 ## Documentation
 
+- `docs/deploying.md` — **start here for a first run**: packaging the extension,
+  installing it in an organisation, and configuring the first board
 - `docs/adr/` — why the constrained decisions were made the way they were
 - `docs/runbook.md` — operating the service: configuration, migrations,
   degraded modes, what to check when it misbehaves
