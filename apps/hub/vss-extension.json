@@ -1,0 +1,85 @@
+{
+  "manifestVersion": 1,
+  "id": "cross-project-sprint-board",
+  "publisher": "expertgroup",
+  "version": "0.1.0",
+  "name": "Cross-Project Sprint Board",
+  "description": "One sprint board across every Azure DevOps project, grouped by person or team, with drag-and-drop that writes back to the owning team's board.",
+  "public": false,
+  "categories": ["Azure Boards"],
+  "tags": ["boards", "sprint", "capacity", "cross-project", "taskboard"],
+  "targets": [
+    {
+      "id": "Microsoft.VisualStudio.Services"
+    }
+  ],
+  "demands": ["api-version/7.1"],
+  "icons": {
+    "default": "static/images/logo.png",
+    "large": "static/images/logo-large.png"
+  },
+  "content": {
+    "details": {
+      "path": "static/overview.md"
+    }
+  },
+  "links": {
+    "home": {
+      "uri": "https://docs.expertgroup.rs/sprint-board"
+    },
+    "support": {
+      "uri": "https://docs.expertgroup.rs/sprint-board/support"
+    }
+  },
+  "branding": {
+    "color": "#0f172a",
+    "theme": "dark"
+  },
+  "scopes": ["vso.work_write", "vso.project"],
+  "files": [
+    {
+      "path": "dist",
+      "addressable": true,
+      "packagePath": "dist"
+    },
+    {
+      "path": "static",
+      "addressable": true,
+      "packagePath": "static"
+    }
+  ],
+  "contributions": [
+    {
+      "id": "cross-project-sprint-board-hub",
+      "type": "ms.vss-web.hub",
+      "description": "The aggregated sprint board, in the Boards hub group.",
+      "targets": ["ms.vss-work-web.work-hub-group"],
+      "properties": {
+        "name": "Cross-project board",
+        "order": 35,
+        "uri": "dist/index.html",
+        "icon": {
+          "light": "static/images/hub-light.png",
+          "dark": "static/images/hub-dark.png"
+        },
+        "supportsMobile": false
+      }
+    },
+    {
+      "id": "cross-project-sprint-board-admin",
+      "type": "ms.vss-web.hub",
+      "description": "Board definitions, canonical columns and per-team column mapping.",
+      "targets": ["ms.vss-web.project-admin-hub-group"],
+      "properties": {
+        "name": "Cross-project board settings",
+        "order": 80,
+        "uri": "dist/index.html",
+        "icon": {
+          "light": "static/images/hub-light.png",
+          "dark": "static/images/hub-dark.png"
+        },
+        "supportsMobile": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,406 @@
+/**
+ * Security trimming: the module's one non-negotiable invariant.
+ *
+ * Spec, "Auth, permissions and security": "The board must never show a
+ * person a card they could not see in Azure DevOps. Because reads run
+ * under a service identity, security trimming is our responsibility, not
+ * the platform's." And: "Cards outside it are removed from the snapshot
+ * before it leaves the server, and lanes that would be empty as a result
+ * are still shown with a count, so a person knows something exists
+ * without seeing what."
+ *
+ * The shape enforces the rule. `assembleBoardSnapshot` produces an
+ * `UntrimmedBoardSnapshot`, which is not a `BoardSnapshot` and cannot be
+ * serialised as one; `trimBoardSnapshot` is the only function that
+ * produces a `TrimmedBoardSnapshot`, and it needs a `CallerAcl` to do
+ * it. A handler typed on the trimmed type therefore cannot answer
+ * without an ACL, and an unresolvable ACL — which throws in `./acl.js` —
+ * serves nothing rather than everything.
+ *
+ * Trimming only ever removes. It never invents a card, a lane or an
+ * hour, and every count it rewrites is recomputed from what survived.
+ */
+import { UNASSIGNED_LANE_ID, UNMAPPED_COLUMN_ID } from '@eg/shared';
+import type {
+  BoardCard,
+  BoardPermissions,
+  BoardSnapshot,
+  BoardSwimlane,
+  BoardTeamView,
+  PersonLoad,
+  PersonTeamCapacity,
+  UnmappedColumnRef,
+} from '@eg/shared';
+import { normalizeAreaPath } from '../domain/area-paths.js';
+import { personDescriptorOf, remainingWorkHours } from '../domain/cards.js';
+import { personLaneId, teamLaneId } from '../domain/swimlanes.js';
+import { roundTo } from '../domain/working-days.js';
+import type { CallerAcl } from '../ports.js';
+
+declare const trimmedBrand: unique symbol;
+
+/**
+ * A snapshot that has been through `trimBoardSnapshot`. Structurally a
+ * `BoardSnapshot`, so it serialises as one, but nothing else in the
+ * service can produce the brand — which is what makes "trimmed before it
+ * leaves the server" a compile-time fact rather than a convention.
+ */
+export type TrimmedBoardSnapshot = BoardSnapshot & {
+  readonly [trimmedBrand]: true;
+};
+
+/**
+ * A snapshot as built, before trimming. Deliberately *not* a
+ * `BoardSnapshot`: it cannot be returned from a handler by accident, and
+ * reaching `.snapshot` to serve it is a visible, reviewable act.
+ */
+export interface UntrimmedBoardSnapshot {
+  readonly kind: 'untrimmed';
+  /** Every card the board scope contains, for every caller. */
+  readonly snapshot: BoardSnapshot;
+  /**
+   * Area path per work item id, when the builder knows it. `BoardCard`
+   * carries no area path, so without this map trimming is by project;
+   * with it, an area-level ACL can refine the answer.
+   */
+  readonly areaPaths?: ReadonlyMap<number, string>;
+}
+
+/** Wraps a freshly built snapshot so it can only leave through `trim`. */
+export function untrimmedSnapshot(
+  snapshot: BoardSnapshot,
+  areaPaths?: ReadonlyMap<number, string>,
+): UntrimmedBoardSnapshot {
+  return {
+    kind: 'untrimmed',
+    snapshot,
+    ...(areaPaths === undefined ? {} : { areaPaths }),
+  };
+}
+
+/** The response body. Trimmed snapshots are the only ones that have one. */
+export function boardSnapshotBody(
+  trimmed: TrimmedBoardSnapshot,
+): BoardSnapshot {
+  return trimmed;
+}
+
+/**
+ * Is this area path inside the caller's readable set? An empty set means
+ * the probe resolved no area-level restriction, so project readability
+ * stands alone; a non-empty one refines it, never widens it.
+ */
+export function areaPathInScope(
+  scope: readonly string[],
+  areaPath: string | null | undefined,
+): boolean {
+  if (scope.length === 0) return true;
+  if (areaPath === null || areaPath === undefined) return true;
+  const target = normalizeAreaPath(areaPath);
+  if (target === '') return true;
+  return scope.some((entry) => {
+    const root = normalizeAreaPath(entry);
+    if (root === '') return false;
+    return target === root || target.startsWith(`${root}\\`);
+  });
+}
+
+/**
+ * The predicate behind every trim. Also what
+ * `BoardSnapshotInput.isCardVisible` wants, so a snapshot can be built
+ * pre-trimmed on the fan-out path and trimmed again on the cached one
+ * without the two disagreeing.
+ */
+export function cardVisibility(
+  acl: CallerAcl,
+  areaPaths?: ReadonlyMap<number, string>,
+): (card: BoardCard) => boolean {
+  const readable = new Set(acl.readableProjectIds);
+  return (card) =>
+    readable.has(card.project) &&
+    areaPathInScope(acl.readableAreaPaths, areaPaths?.get(card.workItemId));
+}
+
+const LANE_KEY_SEPARATOR = '\u0000';
+
+const laneIdFor = (
+  card: BoardCard,
+  grouping: BoardSnapshot['grouping'],
+  known: ReadonlySet<string>,
+): string => {
+  if (grouping === 'team') {
+    const id = teamLaneId(card.teamId);
+    return known.has(id) ? id : UNASSIGNED_LANE_ID;
+  }
+  const descriptor = personDescriptorOf(card);
+  if (descriptor === null) return UNASSIGNED_LANE_ID;
+  const id = personLaneId(descriptor);
+  return known.has(id) ? id : UNASSIGNED_LANE_ID;
+};
+
+interface LaneCounts {
+  cardCount: number;
+  hiddenCardCount: number;
+  remainingWorkHours: number;
+  cardsWithoutRemainingWork: number;
+}
+
+const emptyCounts = (): LaneCounts => ({
+  cardCount: 0,
+  hiddenCardCount: 0,
+  remainingWorkHours: 0,
+  cardsWithoutRemainingWork: 0,
+});
+
+/**
+ * Lanes survive trimming. A lane whose every card was removed is still
+ * rendered, with `cardCount` 0 and `hiddenCardCount` saying how many
+ * cards are there that this caller may not see.
+ */
+function trimSwimlanes(
+  lanes: readonly BoardSwimlane[],
+  grouping: BoardSnapshot['grouping'],
+  visible: readonly BoardCard[],
+  removed: readonly BoardCard[],
+): BoardSwimlane[] {
+  const known = new Set(lanes.map((lane) => lane.id));
+  const counts = new Map<string, LaneCounts>();
+  const countsFor = (id: string): LaneCounts => {
+    const existing = counts.get(id);
+    if (existing !== undefined) return existing;
+    const created = emptyCounts();
+    counts.set(id, created);
+    return created;
+  };
+
+  for (const card of visible) {
+    const lane = countsFor(laneIdFor(card, grouping, known));
+    lane.cardCount += 1;
+    const hours = remainingWorkHours(card);
+    if (hours === null) lane.cardsWithoutRemainingWork += 1;
+    else lane.remainingWorkHours += hours;
+  }
+  for (const card of removed) {
+    countsFor(laneIdFor(card, grouping, known)).hiddenCardCount += 1;
+  }
+
+  return lanes.map((lane) => {
+    const counted = counts.get(lane.id) ?? emptyCounts();
+    return {
+      ...lane,
+      cardCount: counted.cardCount,
+      // The lane already carried cards hidden by a person override;
+      // trimmed cards add to that count rather than replacing it.
+      hiddenCardCount: lane.hiddenCardCount + counted.hiddenCardCount,
+      remainingWorkHours: roundTo(counted.remainingWorkHours, 2),
+      cardsWithoutRemainingWork: counted.cardsWithoutRemainingWork,
+    };
+  });
+}
+
+/**
+ * Team views from unreadable projects go: they name the project, the
+ * team and its sprint. The ones that stay carry `writable`, which is
+ * what dims a read-only lane and refuses the drag before it starts.
+ */
+function trimTeamViews(
+  teams: readonly BoardTeamView[],
+  acl: CallerAcl,
+): BoardTeamView[] {
+  const readable = new Set(acl.readableProjectIds);
+  const writable = new Set(acl.writableProjectIds);
+  return teams
+    .filter((team) => readable.has(team.projectId))
+    .map((team) => ({ ...team, writable: writable.has(team.projectId) }));
+}
+
+/** Unmapped columns are recounted from the cards that survived. */
+function trimUnmappedColumns(
+  refs: readonly UnmappedColumnRef[],
+  acl: CallerAcl,
+  visible: readonly BoardCard[],
+): UnmappedColumnRef[] {
+  const readable = new Set(acl.readableProjectIds);
+  const counted = new Map<string, number>();
+  const keyOf = (project: string, teamId: string, column: string): string =>
+    [project, teamId, column].join(LANE_KEY_SEPARATOR);
+  for (const card of visible) {
+    if (card.canonicalColumnId !== UNMAPPED_COLUMN_ID) continue;
+    const key = keyOf(card.project, card.teamId, card.sourceColumn);
+    counted.set(key, (counted.get(key) ?? 0) + 1);
+  }
+  const out: UnmappedColumnRef[] = [];
+  for (const ref of refs) {
+    if (!readable.has(ref.projectId)) continue;
+    const cardCount =
+      counted.get(keyOf(ref.projectId, ref.teamId, ref.sourceColumn)) ?? 0;
+    if (cardCount === 0) continue;
+    out.push({ ...ref, cardCount });
+  }
+  return out;
+}
+
+/**
+ * Per-person load, recomputed over what the caller may see.
+ *
+ * Teams in unreadable projects are dropped from `perTeam` and added to
+ * `outOfScopeTeamCount`, which is the spec's footnote: "Excluded, with a
+ * footnote count so nobody reads the bar as complete". A person with no
+ * readable team and no visible card disappears entirely.
+ */
+function trimPersonLoad(
+  loads: readonly PersonLoad[],
+  acl: CallerAcl,
+  visible: readonly BoardCard[],
+): PersonLoad[] {
+  const readable = new Set(acl.readableProjectIds);
+  const byDescriptor = new Map<string, BoardCard[]>();
+  for (const card of visible) {
+    const descriptor = personDescriptorOf(card);
+    if (descriptor === null) continue;
+    const bucket = byDescriptor.get(descriptor);
+    if (bucket === undefined) byDescriptor.set(descriptor, [card]);
+    else bucket.push(card);
+  }
+
+  const out: PersonLoad[] = [];
+  for (const load of loads) {
+    const perTeam = load.perTeam.filter((entry) =>
+      readable.has(entry.projectId),
+    );
+    const cards = byDescriptor.get(load.descriptor) ?? [];
+    const droppedTeams = load.perTeam.length - perTeam.length;
+    if (perTeam.length === 0 && cards.length === 0) continue;
+
+    const scopedTeams: PersonTeamCapacity[] = perTeam.map((entry) => {
+      const teamCards = cards.filter(
+        (card) =>
+          card.project === entry.projectId &&
+          card.teamId === entry.teamId &&
+          card.iterationId === entry.iterationId,
+      );
+      let committed = 0;
+      for (const card of teamCards) committed += remainingWorkHours(card) ?? 0;
+      return {
+        ...entry,
+        committedHours: roundTo(committed, 2),
+        cardCount: teamCards.length,
+      };
+    });
+
+    let capacityHours = 0;
+    for (const entry of scopedTeams) capacityHours += entry.capacityHours;
+    let committedHours = 0;
+    let withoutRemaining = 0;
+    for (const card of cards) {
+      const hours = remainingWorkHours(card);
+      if (hours === null) withoutRemaining += 1;
+      else committedHours += hours;
+    }
+
+    const capacity = roundTo(capacityHours, 2);
+    const committed = roundTo(committedHours, 2);
+    out.push({
+      ...load,
+      capacityHours: capacity,
+      committedHours: committed,
+      load: capacity > 0 ? roundTo(committed / capacity, 4) : null,
+      partialCapacity:
+        load.partialCapacity ||
+        droppedTeams > 0 ||
+        scopedTeams.some((entry) => !entry.hasCapacityRecord),
+      outOfScopeTeamCount: load.outOfScopeTeamCount + droppedTeams,
+      cardCount: cards.length,
+      cardsWithoutRemainingWork: withoutRemaining,
+      perTeam: scopedTeams,
+    });
+  }
+  return out;
+}
+
+/** Permissions are restated from the ACL, never from the input snapshot. */
+function trimPermissions(
+  snapshot: BoardSnapshot,
+  acl: CallerAcl,
+): BoardPermissions {
+  const boardProjects = new Set(snapshot.teams.map((team) => team.projectId));
+  return {
+    descriptor: acl.descriptor,
+    readableProjectIds: acl.readableProjectIds.filter((id) =>
+      boardProjects.has(id),
+    ),
+    writableProjectIds: acl.writableProjectIds.filter((id) =>
+      boardProjects.has(id),
+    ),
+    canAdminister:
+      snapshot.permissions.canAdminister &&
+      snapshot.permissions.descriptor === acl.descriptor,
+  };
+}
+
+/** What a trim removed, for the log line and for the tests. */
+export interface TrimSummary {
+  readonly cardsBefore: number;
+  readonly cardsAfter: number;
+  readonly cardsRemoved: number;
+  readonly teamsRemoved: number;
+}
+
+export interface TrimResult {
+  readonly snapshot: TrimmedBoardSnapshot;
+  readonly summary: TrimSummary;
+}
+
+/**
+ * Removes every card outside the ACL, keeps every lane, recounts
+ * everything derived, and brands the result so it can be served.
+ */
+export function trimBoardSnapshotWithSummary(
+  untrimmed: UntrimmedBoardSnapshot,
+  acl: CallerAcl,
+): TrimResult {
+  const source = untrimmed.snapshot;
+  const isVisible = cardVisibility(acl, untrimmed.areaPaths);
+
+  const visible: BoardCard[] = [];
+  const removed: BoardCard[] = [];
+  for (const card of source.cards) {
+    if (isVisible(card)) visible.push(card);
+    else removed.push(card);
+  }
+
+  const teams = trimTeamViews(source.teams, acl);
+  const trimmed: BoardSnapshot = {
+    ...source,
+    teams,
+    cards: visible,
+    swimlanes: trimSwimlanes(
+      source.swimlanes,
+      source.grouping,
+      visible,
+      removed,
+    ),
+    personLoad: trimPersonLoad(source.personLoad, acl, visible),
+    unmappedColumns: trimUnmappedColumns(source.unmappedColumns, acl, visible),
+    permissions: trimPermissions(source, acl),
+    hiddenCardCount: source.hiddenCardCount + removed.length,
+  };
+
+  return {
+    snapshot: trimmed as TrimmedBoardSnapshot,
+    summary: {
+      cardsBefore: source.cards.length,
+      cardsAfter: visible.length,
+      cardsRemoved: removed.length,
+      teamsRemoved: source.teams.length - teams.length,
+    },
+  };
+}
+
+/** The usual call: the trimmed snapshot alone. */
+export function trimBoardSnapshot(
+  untrimmed: UntrimmedBoardSnapshot,
+  acl: CallerAcl,
+): TrimmedBoardSnapshot {
+  return trimBoardSnapshotWithSummary(untrimmed, acl).snapshot;
+}

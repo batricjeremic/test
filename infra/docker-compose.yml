@@ -1,0 +1,39 @@
+# Local development dependencies only. The API and the hub run from the
+# workspace (pnpm dev:api / pnpm dev:hub) so they stay debuggable.
+#
+# Migrations are NOT applied by this file and NOT applied at API startup.
+# Run them explicitly:  pnpm db:migrate
+# In every deployed environment they are applied by the pipeline.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: eg-board-postgres
+    environment:
+      POSTGRES_USER: board
+      POSTGRES_PASSWORD: board
+      POSTGRES_DB: board
+    ports:
+      - '5432:5432'
+    volumes:
+      - board-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U board -d board']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: eg-board-redis
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  board-pgdata:

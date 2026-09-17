@@ -1,0 +1,158 @@
+# Cross-Project Sprint Board — build, verify and deploy.
+#
+# Promotion follows the ExpertGroup branching model: feature branches squash
+# into development, and development → staging → production are plain-merge PRs.
+# This pipeline deploys whichever environment branch it was triggered by; it
+# never promotes anything itself.
+
+# One environment branch for now. Add `staging` and `production` here when
+# those environments exist — see the Deploy stage at the bottom.
+trigger:
+  branches:
+    include:
+      - development
+
+pr:
+  branches:
+    include:
+      - development
+
+variables:
+  - name: nodeVersion
+    value: '22.x'
+
+stages:
+  # ---------------------------------------------------------------------
+  # Runs on every PR and every environment branch. Nothing deploys unless
+  # this passes.
+  # ---------------------------------------------------------------------
+  - stage: Verify
+    displayName: Verify
+    jobs:
+      - job: Verify
+        pool:
+          vmImage: ubuntu-latest
+        timeoutInMinutes: 20
+        steps:
+          - task: NodeTool@0
+            displayName: Node $(nodeVersion)
+            inputs:
+              versionSpec: $(nodeVersion)
+
+          # corepack reads the root package.json "packageManager" field, so the
+          # agent runs the exact pnpm the repository pins. Never name a version
+          # in two places.
+          - script: corepack enable
+            displayName: Enable corepack
+
+          - script: |
+              echo "##vso[task.setvariable variable=PNPM_STORE]$(pnpm store path --silent)"
+            displayName: Resolve pnpm store path
+
+          - task: Cache@2
+            displayName: Cache pnpm store
+            inputs:
+              key: 'pnpm | "$(Agent.OS)" | pnpm-lock.yaml'
+              restoreKeys: 'pnpm | "$(Agent.OS)"'
+              path: $(PNPM_STORE)
+
+          - script: pnpm install --frozen-lockfile
+            displayName: Install
+
+          # @eg/shared is consumed through its built dist, so it must exist
+          # before anything downstream can typecheck.
+          - script: pnpm --filter @eg/shared build
+            displayName: Build shared contract
+
+          - script: pnpm lint
+            displayName: Lint
+
+          - script: pnpm format:check
+            displayName: Format
+
+          - script: pnpm typecheck
+            displayName: Typecheck
+
+          - script: pnpm test
+            displayName: Test
+
+          # Last: a green test suite over code that does not bundle is not green.
+          - script: pnpm build
+            displayName: Build
+
+  # ---------------------------------------------------------------------
+  # The extension is built ONCE and the same .vsix is promoted through
+  # every environment. It carries no environment configuration: the hub
+  # reads its BFF endpoint from an organisation-wide extension setting at
+  # runtime, which an administrator sets in the admin screen.
+  #
+  # VITE_BFF_BASE_URL is deliberately NOT set here. It survives only as a
+  # local-development fallback, so a fresh installation with no endpoint
+  # configured fails visibly and the admin screen says what to do, rather
+  # than silently pointing at whatever environment happened to build it.
+  # ---------------------------------------------------------------------
+  - stage: Package
+    displayName: Package extension
+    dependsOn: Verify
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - job: Vsix
+        displayName: Build .vsix
+        pool:
+          vmImage: ubuntu-latest
+        timeoutInMinutes: 20
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(nodeVersion)
+          - script: corepack enable
+            displayName: Enable corepack
+          - script: pnpm install --frozen-lockfile
+            displayName: Install
+          - script: pnpm --filter @eg/shared build
+            displayName: Build shared contract
+          - script: pnpm --filter @eg/board-hub build
+            displayName: Build hub
+
+          - script: |
+              set -euo pipefail
+              npm i -g tfx-cli
+              cd apps/hub
+              # The Marketplace refuses a version it has already seen, so the
+              # build number becomes the patch version.
+              tfx extension create \
+                --manifest-globs vss-extension.json \
+                --rev-version \
+                --output-path "$(Build.ArtifactStagingDirectory)"
+            displayName: Package .vsix
+
+          - publish: $(Build.ArtifactStagingDirectory)
+            artifact: vsix
+            displayName: Publish .vsix artifact
+
+          # Uploading to the Marketplace and sharing with the organisation is
+          # deliberately NOT automated: it changes what every user of the
+          # organisation runs. Download this artifact and upload it from the
+          # Manage page.
+
+  # ---------------------------------------------------------------------
+  # ONE environment for now, deployed from `development`.
+  #
+  # The stage is a template on purpose: adding staging and production later
+  # is another two blocks like this one with their own environment name,
+  # branch and variable group. Nothing else changes. Until there is
+  # somewhere real to promote to, three stages would be ceremony over a
+  # single deployment.
+  # ---------------------------------------------------------------------
+  - template: .azure/deploy-stage.yml
+    parameters:
+      stageName: Deploy
+      displayName: Deploy
+      # The project's existing `production` environment, deliberately: these
+      # resources live in the production subscription, so deploys go through
+      # the approval check already configured there rather than around it via
+      # a new ungated environment.
+      environmentName: production
+      branch: refs/heads/development
+      variableGroup: sprintboard
+      azureSubscription: Deploy To Main

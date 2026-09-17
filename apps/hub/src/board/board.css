@@ -1,0 +1,314 @@
+/*
+ * Board-only styling. `theme.css` owns the tokens, the grid and the card;
+ * everything here is the board view's own furniture, built on the same
+ * `--eg-*` variables so light and dark follow the Azure DevOps shell.
+ *
+ * Desktop and tablet only, per the spec's non-goals.
+ */
+
+.eg-board-view {
+  min-width: 768px;
+}
+
+/*
+ * The grid in `theme.css` places header and body cells directly, so a
+ * row wrapper has to disappear from the layout while staying in the
+ * accessibility tree. `display: contents` is exactly that.
+ */
+.eg-board__row {
+  display: contents;
+}
+
+.eg-board {
+  align-content: start;
+}
+
+/* ----------------------------------------------------------------- */
+/* Column headers                                                     */
+/* ----------------------------------------------------------------- */
+
+.eg-board__column-header[data-unmapped='true'] {
+  color: var(--eg-text);
+  background: var(--eg-warning-soft);
+}
+
+.eg-column-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--eg-space-2);
+}
+
+.eg-column-head__name {
+  font-weight: 600;
+}
+
+.eg-count {
+  color: var(--eg-text-secondary);
+  font-size: var(--eg-font-size-sm);
+  font-weight: 400;
+}
+
+/* ----------------------------------------------------------------- */
+/* Lane headers                                                       */
+/* ----------------------------------------------------------------- */
+
+.eg-lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-1);
+}
+
+.eg-lane__top {
+  display: flex;
+  align-items: center;
+  gap: var(--eg-space-1);
+}
+
+.eg-lane__title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.eg-lane__meta,
+.eg-lane__sprints {
+  color: var(--eg-text-secondary);
+  font-size: var(--eg-font-size-sm);
+}
+
+.eg-lane__sprints {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eg-board__lane-header[data-pinned='true'] {
+  border-top: 2px solid var(--eg-accent);
+}
+
+.eg-board__lane-header[data-readonly='true'] .eg-lane__title,
+.eg-board__cell[data-readonly='true'] {
+  color: var(--eg-text-secondary);
+}
+
+.eg-board__cell[data-readonly='true'] .eg-card {
+  opacity: 0.75;
+}
+
+.eg-collapse {
+  border: 1px solid transparent;
+  background: none;
+  color: var(--eg-text-secondary);
+  border-radius: var(--eg-radius);
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  padding: 0 var(--eg-space-1);
+}
+
+.eg-collapse:hover {
+  background: var(--eg-surface-hover);
+}
+
+/* ----------------------------------------------------------------- */
+/* Cards                                                              */
+/* ----------------------------------------------------------------- */
+
+.eg-card[data-draggable='true'] {
+  cursor: grab;
+}
+
+.eg-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--eg-space-2);
+}
+
+.eg-card__open {
+  flex: 1 1 auto;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--eg-text);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.eg-card__open:hover {
+  text-decoration: underline;
+}
+
+.eg-card__open:focus-visible {
+  outline: var(--eg-focus-ring);
+  outline-offset: var(--eg-focus-offset);
+}
+
+.eg-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--eg-space-1);
+}
+
+.eg-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--eg-border);
+  border-radius: var(--eg-radius);
+  padding: 0 var(--eg-space-1);
+  font-size: var(--eg-font-size-sm);
+  color: var(--eg-text-secondary);
+  background: var(--eg-surface-sunken);
+  white-space: nowrap;
+}
+
+.eg-badge[data-tone='project'] {
+  border-color: var(--eg-accent);
+  color: var(--eg-accent);
+  background: var(--eg-accent-soft);
+}
+
+.eg-badge[data-tone='warning'] {
+  border-color: var(--eg-warning);
+  color: var(--eg-text);
+  background: var(--eg-warning-soft);
+}
+
+/* ----------------------------------------------------------------- */
+/* Toolbar, filters, notices                                          */
+/* ----------------------------------------------------------------- */
+
+.eg-group-toggle {
+  display: inline-flex;
+}
+
+.eg-group-toggle .eg-button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.eg-group-toggle .eg-button:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: -1px;
+}
+
+.eg-button[aria-pressed='true'] {
+  background: var(--eg-accent-soft);
+  border-color: var(--eg-accent);
+  color: var(--eg-text);
+}
+
+.eg-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--eg-space-1);
+  font-size: var(--eg-font-size-sm);
+  color: var(--eg-text-secondary);
+}
+
+.eg-field select,
+.eg-field input {
+  font: inherit;
+  font-size: var(--eg-font-size);
+  color: var(--eg-text);
+  background: var(--eg-surface);
+  border: 1px solid var(--eg-border-strong);
+  border-radius: var(--eg-radius);
+  padding: 2px var(--eg-space-1);
+}
+
+.eg-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--eg-space-3);
+  margin-top: var(--eg-space-3);
+}
+
+.eg-filters fieldset {
+  border: 1px solid var(--eg-border);
+  border-radius: var(--eg-radius);
+  padding: var(--eg-space-2);
+  margin: 0;
+  min-width: 0;
+}
+
+.eg-filters legend {
+  font-size: var(--eg-font-size-sm);
+  color: var(--eg-text-secondary);
+  padding: 0 var(--eg-space-1);
+}
+
+.eg-filters__options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.eg-check {
+  display: flex;
+  align-items: center;
+  gap: var(--eg-space-1);
+}
+
+.eg-notice {
+  border-left: 4px solid var(--eg-warning);
+}
+
+.eg-notice ul {
+  margin: var(--eg-space-2) 0 0;
+  padding-left: var(--eg-space-4);
+}
+
+.eg-empty {
+  color: var(--eg-text-secondary);
+  padding: var(--eg-space-5);
+  text-align: center;
+}
+
+/* ----------------------------------------------------------------- */
+/* Work item dialog                                                   */
+/* ----------------------------------------------------------------- */
+
+.eg-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.eg-dialog__panel {
+  background: var(--eg-surface);
+  border: 1px solid var(--eg-border);
+  border-radius: var(--eg-radius-lg);
+  box-shadow: var(--eg-shadow-overlay);
+  width: min(1080px, 92vw);
+  height: min(760px, 88vh);
+  display: flex;
+  flex-direction: column;
+}
+
+.eg-dialog__head {
+  display: flex;
+  align-items: center;
+  gap: var(--eg-space-2);
+  padding: var(--eg-space-3);
+  border-bottom: 1px solid var(--eg-border);
+}
+
+.eg-dialog__title {
+  margin: 0;
+  font-size: var(--eg-font-size-lg);
+}
+
+.eg-dialog__frame {
+  flex: 1 1 auto;
+  border: 0;
+  width: 100%;
+}
