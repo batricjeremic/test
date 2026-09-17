@@ -81,9 +81,105 @@ CORS is already scoped to your organisation's Azure DevOps origin, derived from
 `ADO_ORG_URL`, so no extra configuration is needed. If the browser reports a
 CORS failure, `ADO_ORG_URL` is wrong.
 
-For real use, deploy `infra/Dockerfile` to Azure Container Apps with Redis and
-Postgres alongside, and run `pnpm db:migrate` as a pipeline step before the
-container rolls.
+For real use, deploy it properly — see §2b.
+
+## 2b. Deploying the backend for real
+
+### What the backend is
+
+`apps/api` is **one Node 22 process**, packaged as one container. It does five
+things, and the sync worker runs inside the same process on its own schedule:
+
+1. **Aggregates** — merges the iteration work items of N teams across N projects
+   into one board snapshot.
+2. **Caches** — Redis, so a cold fan-out does not happen per user per load.
+3. **Computes** — column mapping, capacity across teams, iteration alignment.
+4. **Writes** — turns a drag into a JSON Patch under the calling user's own
+   identity, confirms it, and audits every attempt.
+5. **Pushes** — WebSocket fan-out, and the service hook ingress.
+
+It exists rather than having the hub call Azure DevOps directly because a cold
+load is roughly 75 calls for eight teams, Azure DevOps throttles **per
+identity**, and security trimming has to happen server-side once reads run under
+a service identity.
+
+### What it needs
+
+Three things: the container, a Postgres, a Redis. Nothing else.
+
+### Azure Container Apps
+
+The image is built and verified by CI on every push. To deploy:
+
+```bash
+RG=rg-sprintboard
+LOC=westeurope
+ACR=acrsprintboard          # must be globally unique
+APP=sprint-board-api
+
+az group create -n $RG -l $LOC
+
+# Build the image in Azure — no local Docker daemon needed.
+az acr create -g $RG -n $ACR --sku Basic --admin-enabled true
+az acr build -r $ACR -t sprint-board-api:1 -f infra/Dockerfile .
+
+# Managed Postgres and Redis.
+az postgres flexible-server create -g $RG -n pg-sprintboard -l $LOC \
+  --tier Burstable --sku-name Standard_B1ms --version 17 --database-name board
+az redis create -g $RG -n redis-sprintboard -l $LOC --sku Basic --vm-size c0
+
+az containerapp env create -g $RG -n cae-sprintboard -l $LOC
+
+az containerapp create -g $RG -n $APP --environment cae-sprintboard \
+  --image $ACR.azurecr.io/sprint-board-api:1 \
+  --registry-server $ACR.azurecr.io \
+  --ingress external --target-port 8080 \
+  --min-replicas 1 --max-replicas 1 \
+  --secrets ado-token=<PAT> db-url=<postgres-url> redis-url=<redis-url> \
+  --env-vars \
+      ADO_ORG_URL=https://dev.azure.com/<org> \
+      ADO_SERVICE_TOKEN=secretref:ado-token \
+      DATABASE_URL=secretref:db-url \
+      REDIS_URL=secretref:redis-url
+```
+
+Container Apps gives the app an HTTPS FQDN with a certificate and supports
+WebSockets on that ingress, so the realtime channel works without extra
+configuration. That FQDN is what goes into `VITE_BFF_BASE_URL` when you build
+the hub.
+
+### Pin it to one replica — this is not a default, it is a requirement
+
+`--min-replicas 1 --max-replicas 1` is deliberate, and removing it breaks the
+product in a way that looks like a flaky bug rather than a misconfiguration:
+
+- **WebSocket subscriptions live in process memory** (ADR 0005). With two
+  replicas, a move written through replica A is never pushed to a board held
+  open on replica B. Users report "sometimes my board does not update".
+- **The sync worker would run in every replica**, multiplying the load on the
+  shared service-identity rate budget that the interactive path depends on.
+
+Before scaling out, implement the Redis pub/sub fan-out behind the
+`RealtimePublisher` port and make the worker leader-elected. Until then, one
+replica is the supported topology.
+
+### Migrations are a pipeline step
+
+The service never migrates on boot — there is no entrypoint script that could
+quietly start. Run them from the pipeline, against the same database, **before**
+the new revision takes traffic:
+
+```bash
+DATABASE_URL=<postgres-url> pnpm db:migrate
+```
+
+The runner takes an advisory lock so two concurrent pipeline runs cannot race,
+and refuses to run if an already-applied migration's checksum changed.
+
+> These commands are a working starting point, not a verified deployment —
+> they have not been run against an Expert Group subscription. Names, SKUs and
+> network rules will need adjusting to house policy, and the Postgres firewall
+> must allow the Container App.
 
 ## 3. Package the extension
 
