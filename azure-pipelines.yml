@@ -1,0 +1,107 @@
+# Cross-Project Sprint Board — build, verify and deploy.
+#
+# Promotion follows the ExpertGroup branching model: feature branches squash
+# into development, and development → staging → production are plain-merge PRs.
+# This pipeline deploys whichever environment branch it was triggered by; it
+# never promotes anything itself.
+
+trigger:
+  branches:
+    include:
+      - development
+      - staging
+      - production
+
+pr:
+  branches:
+    include:
+      - development
+      - staging
+      - production
+
+variables:
+  - name: nodeVersion
+    value: '22.x'
+
+stages:
+  # ---------------------------------------------------------------------
+  # Runs on every PR and every environment branch. Nothing deploys unless
+  # this passes.
+  # ---------------------------------------------------------------------
+  - stage: Verify
+    displayName: Verify
+    jobs:
+      - job: Verify
+        pool:
+          vmImage: ubuntu-latest
+        timeoutInMinutes: 20
+        steps:
+          - task: NodeTool@0
+            displayName: Node $(nodeVersion)
+            inputs:
+              versionSpec: $(nodeVersion)
+
+          # corepack reads the root package.json "packageManager" field, so the
+          # agent runs the exact pnpm the repository pins. Never name a version
+          # in two places.
+          - script: corepack enable
+            displayName: Enable corepack
+
+          - script: |
+              echo "##vso[task.setvariable variable=PNPM_STORE]$(pnpm store path --silent)"
+            displayName: Resolve pnpm store path
+
+          - task: Cache@2
+            displayName: Cache pnpm store
+            inputs:
+              key: 'pnpm | "$(Agent.OS)" | pnpm-lock.yaml'
+              restoreKeys: 'pnpm | "$(Agent.OS)"'
+              path: $(PNPM_STORE)
+
+          - script: pnpm install --frozen-lockfile
+            displayName: Install
+
+          # @eg/shared is consumed through its built dist, so it must exist
+          # before anything downstream can typecheck.
+          - script: pnpm --filter @eg/shared build
+            displayName: Build shared contract
+
+          - script: pnpm lint
+            displayName: Lint
+
+          - script: pnpm format:check
+            displayName: Format
+
+          - script: pnpm typecheck
+            displayName: Typecheck
+
+          - script: pnpm test
+            displayName: Test
+
+          # Last: a green test suite over code that does not bundle is not green.
+          - script: pnpm build
+            displayName: Build
+
+  - template: .azure/deploy-stage.yml
+    parameters:
+      stageName: Deploy_Development
+      displayName: Deploy — development
+      environmentName: sprintboard-development
+      branch: refs/heads/development
+      variableGroup: sprintboard-development
+
+  - template: .azure/deploy-stage.yml
+    parameters:
+      stageName: Deploy_Staging
+      displayName: Deploy — staging
+      environmentName: sprintboard-staging
+      branch: refs/heads/staging
+      variableGroup: sprintboard-staging
+
+  - template: .azure/deploy-stage.yml
+    parameters:
+      stageName: Deploy_Production
+      displayName: Deploy — production
+      environmentName: sprintboard-production
+      branch: refs/heads/production
+      variableGroup: sprintboard-production

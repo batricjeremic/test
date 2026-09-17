@@ -181,6 +181,55 @@ and refuses to run if an already-applied migration's checksum changed.
 > network rules will need adjusting to house policy, and the Postgres firewall
 > must allow the Container App.
 
+## 2c. Doing it from a pipeline
+
+`azure-pipelines.yml` does all of the above. One `Verify` stage runs on every PR
+and every environment branch; three deployment stages fire on `development`,
+`staging` and `production` respectively, each bound to an Azure DevOps
+Environment so approvals and checks are configured there rather than in YAML.
+
+Per environment, create a variable group — `sprintboard-development`,
+`sprintboard-staging`, `sprintboard-production` — backed by Key Vault, holding:
+
+| Variable            | What                                    |
+| ------------------- | --------------------------------------- |
+| `azureSubscription` | service connection name                 |
+| `resourceGroup`     | resource group of the container app     |
+| `acrName`           | container registry                      |
+| `containerAppName`  | the container app                       |
+| `bffBaseUrl`        | that environment's public HTTPS API URL |
+| `databaseUrl`       | **secret** — Postgres connection string |
+
+Order inside a deployment stage is deliberate: build the image, **apply
+migrations, then** roll the container, then wait for `/api/ready` to answer 200
+before the stage is allowed to succeed. The hub is packaged only after the API
+is live, so the extension is never newer than the API it calls.
+
+The agent must reach Postgres for the migration step — allow Azure services on
+the flexible server, or run that job on a self-hosted agent inside the network.
+
+Publishing the `.vsix` to the Marketplace is deliberately **not** automated. It
+changes what every user in the organisation runs; the pipeline publishes the
+file as a build artifact and a human uploads it.
+
+### A wrinkle worth fixing: the .vsix is environment-specific
+
+`VITE_BFF_BASE_URL` is read through `import.meta.env`, so it is **baked into the
+hub bundle at build time**. Nothing reads it at runtime.
+
+That means the same `.vsix` cannot be promoted from development to staging to
+production — each environment needs its own build, which is what the pipeline
+does. It works, but it breaks the build-once-promote-the-same-artifact principle
+the rest of the promotion flow is built on: the thing tested in staging is not
+byte-identical to the thing installed in production.
+
+The fix is small and worth doing before this goes wide: store the BFF URL in
+Azure DevOps extension data (`IExtensionDataManager`), set it once in the admin
+screen per organisation, and fall back to `VITE_BFF_BASE_URL` only when it is
+unset. Then one `.vsix` serves every environment and the promotion flow is
+honest. It is not done yet, and the pipeline reflects reality rather than the
+intent.
+
 ## 3. Package the extension
 
 ### A publisher, once
