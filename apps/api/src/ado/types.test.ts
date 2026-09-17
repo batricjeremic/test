@@ -162,6 +162,26 @@ describe('read endpoint schemas', () => {
     expect(adoTeamSettingsDaysOffSchema.parse(daysOff)).toEqual(daysOff);
   });
 
+  // The shape 7.1-preview.3 actually returns, copied from a live call.
+  // We asked for preview.3 while parsing preview.2's `{ count, value }`
+  // envelope, so every board load died on `getTeamCapacities returned an
+  // unexpected shape` and the user saw a bare 502.
+  it('accepts the envelope-less capacities of api-version 7.1-preview.3', () => {
+    const payload = {
+      teamMembers: [
+        {
+          teamMember: {
+            id: '867d7d0d-30c5-6980-addc-083d1b4f3a98',
+            displayName: 'Nikola Jeremić',
+          },
+          activities: [{ capacityPerDay: 0, name: null }],
+          daysOff: [],
+        },
+      ],
+    };
+    expect(adoCapacityListSchema.parse(payload)).toEqual(payload);
+  });
+
   it('round-trips a work item batch response', () => {
     const payload = {
       count: 1,

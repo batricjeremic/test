@@ -98,3 +98,29 @@ case — the two are indistinguishable to a caller but not to whoever is
 reading the log. And the fixture in `introspect.test.ts` is now a copy of a
 real response rather than an invention, with a comment saying so, which is
 the only part of the arrangement that was ever going to catch this.
+
+## Postscript 2: and again, in the Azure DevOps schemas
+
+The closing paragraph above named the Azure DevOps response schemas as the
+next place this would happen. It was.
+
+`getTeamCapacities` is requested at `7.1-preview.3` and parsed with the
+`{ count, value }` envelope every other list endpoint uses. Preview.3
+replaced that envelope with `{ teamMembers: [...] }`. Every board load
+therefore died on "returned an unexpected shape", which reaches the user
+as a bare 502 — indistinguishable, from the outside, from Azure DevOps
+being down.
+
+Three of these now, all the same shape: the token was not what we thought,
+`connectionData` answered a version we did not ask correctly for, and the
+capacities envelope moved. Each was found by a person clicking, not by a
+test, because every test on both sides was written from the same belief as
+the code.
+
+What would actually close this is not another unit test. It is a checked-in
+diagnostic that runs the real board load against a real organisation and
+reports which of our schemas the live responses fail — the throwaway script
+that found this one did exactly that, and took minutes where the previous
+two took a deploy each. That is worth building deliberately, with the
+organisation and credentials as parameters rather than a session's
+scratchpad, and running it against a scratch project before a release.

@@ -341,7 +341,9 @@ export class UndiciAdoClient implements AdoClient {
       apiVersion: this.#apiVersions.capacities,
       options,
     });
-    return list.value;
+    // Two shapes, one meaning — see adoCapacityListSchema. The version we
+    // ask for is the one that dropped the envelope.
+    return 'teamMembers' in list ? list.teamMembers : list.value;
   }
 
   async getTeamDaysOff(

@@ -288,7 +288,26 @@ export const adoTeamMemberCapacitySchema = z.object({
   _links: adoLinksSchema.optional(),
 });
 export type AdoTeamMemberCapacity = z.infer<typeof adoTeamMemberCapacitySchema>;
-export const adoCapacityListSchema = adoListSchema(adoTeamMemberCapacitySchema);
+/**
+ * Capacities come back in one of two shapes, depending on which preview
+ * of the API answers.
+ *
+ * `7.1-preview.2` uses the `{ count, value }` envelope every other list
+ * endpoint uses. `7.1-preview.3` — the version we ask for — replaced it
+ * with `{ teamMembers: [...] }` and no count. We shipped the envelope
+ * schema against preview.3 and every board load failed with
+ * `getTeamCapacities returned an unexpected shape`, which surfaced to the
+ * user as a 502 with nothing to go on.
+ *
+ * Accepting both is not defensiveness for its own sake: the api-version
+ * table above exists precisely because Microsoft promotes these without
+ * warning, and this endpoint just proved it. Whichever arrives, the
+ * normalised form is a plain array.
+ */
+export const adoCapacityListSchema = z.union([
+  z.object({ teamMembers: z.array(adoTeamMemberCapacitySchema) }),
+  adoListSchema(adoTeamMemberCapacitySchema),
+]);
 export type AdoCapacityList = z.infer<typeof adoCapacityListSchema>;
 
 export const adoTeamSettingsDaysOffSchema = z.object({
