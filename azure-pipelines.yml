@@ -155,3 +155,4 @@ stages:
       environmentName: production
       branch: refs/heads/development
       variableGroup: sprintboard
+      azureSubscription: Deploy To Main
