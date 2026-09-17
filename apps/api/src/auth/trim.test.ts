@@ -156,10 +156,7 @@ describe('trimBoardSnapshot', () => {
   });
 
   it('serves nothing when the ACL is empty, rather than everything', () => {
-    const trimmed = trimBoardSnapshot(
-      untrimmedSnapshot(snapshot()),
-      makeAcl(),
-    );
+    const trimmed = trimBoardSnapshot(untrimmedSnapshot(snapshot()), makeAcl());
 
     expect(trimmed.cards).toEqual([]);
     expect(trimmed.teams).toEqual([]);
@@ -245,10 +242,7 @@ describe('area paths', () => {
 
 describe('derived counts', () => {
   it('recomputes per-person load over the readable teams only', () => {
-    const load: PersonLoad = makePersonLoad(ANA, cards, [
-      'Delivery',
-      'Secret',
-    ]);
+    const load: PersonLoad = makePersonLoad(ANA, cards, ['Delivery', 'Secret']);
     const source: BoardSnapshot = {
       ...makeSnapshot({ cards, projectIds: ['Delivery', 'Secret'] }),
       personLoad: [load],
