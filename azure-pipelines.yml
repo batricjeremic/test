@@ -82,6 +82,61 @@ stages:
           - script: pnpm build
             displayName: Build
 
+  # ---------------------------------------------------------------------
+  # The extension is built ONCE and the same .vsix is promoted through
+  # every environment. It carries no environment configuration: the hub
+  # reads its BFF endpoint from an organisation-wide extension setting at
+  # runtime, which an administrator sets in the admin screen.
+  #
+  # VITE_BFF_BASE_URL is deliberately NOT set here. It survives only as a
+  # local-development fallback, so a fresh installation with no endpoint
+  # configured fails visibly and the admin screen says what to do, rather
+  # than silently pointing at whatever environment happened to build it.
+  # ---------------------------------------------------------------------
+  - stage: Package
+    displayName: Package extension
+    dependsOn: Verify
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - job: Vsix
+        displayName: Build .vsix
+        pool:
+          vmImage: ubuntu-latest
+        timeoutInMinutes: 20
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(nodeVersion)
+          - script: corepack enable
+            displayName: Enable corepack
+          - script: pnpm install --frozen-lockfile
+            displayName: Install
+          - script: pnpm --filter @eg/shared build
+            displayName: Build shared contract
+          - script: pnpm --filter @eg/board-hub build
+            displayName: Build hub
+
+          - script: |
+              set -euo pipefail
+              npm i -g tfx-cli
+              cd apps/hub
+              # The Marketplace refuses a version it has already seen, so the
+              # build number becomes the patch version.
+              tfx extension create \
+                --manifest-globs vss-extension.json \
+                --rev-version \
+                --output-path "$(Build.ArtifactStagingDirectory)"
+            displayName: Package .vsix
+
+          - publish: $(Build.ArtifactStagingDirectory)
+            artifact: vsix
+            displayName: Publish .vsix artifact
+
+          # Uploading to the Marketplace and sharing with the organisation is
+          # deliberately NOT automated: it changes what every user of the
+          # organisation runs. Download this artifact and upload it from the
+          # Manage page.
+
   - template: .azure/deploy-stage.yml
     parameters:
       stageName: Deploy_Development

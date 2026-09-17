@@ -61,6 +61,20 @@ export interface HubHost {
   resize(width?: number, height?: number): void;
   /** Deep link to a work item's native form, for toasts and card detail. */
   workItemUrl(projectName: string, workItemId: number): string;
+  /**
+   * Reads an organisation-wide extension setting, or null when unset.
+   *
+   * Organisation-wide, not per-user: one administrator sets it and every
+   * user of that organisation sees the same value. This is what lets one
+   * `.vsix` serve every environment instead of baking configuration into
+   * the bundle at build time.
+   *
+   * Returns null rather than throwing when the value is absent or the
+   * host refuses — a hub that cannot read its settings must still render.
+   */
+  readSetting(key: string): Promise<string | null>;
+  /** Writes an organisation-wide setting. `null` removes it. */
+  writeSetting(key: string, value: string | null): Promise<void>;
 }
 
 /** Options for `initHubHost`. */

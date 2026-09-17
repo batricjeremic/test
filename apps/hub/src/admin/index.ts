@@ -1,6 +1,8 @@
 /** The admin screen: board definition, columns, mapping and overrides. */
 export { AdminView, default } from './AdminView';
 export type { AdminViewProps } from './AdminView';
+export { BffEndpointPanel } from './BffEndpointPanel';
+export type { BffEndpointPanelProps } from './BffEndpointPanel';
 export { BoardDefinitionForm } from './BoardDefinitionForm';
 export type { BoardDefinitionFormProps } from './BoardDefinitionForm';
 export { CanonicalColumnsEditor } from './CanonicalColumnsEditor';

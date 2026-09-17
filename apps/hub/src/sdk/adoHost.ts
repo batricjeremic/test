@@ -81,7 +81,88 @@ export function createHubHost(
     },
     workItemUrl: (projectName: string, workItemId: number) =>
       buildWorkItemUrl(context.organizationUrl, projectName, workItemId),
+    readSetting: (key: string) =>
+      readExtensionSetting(sdk, context.extensionId, tokens.get, key),
+    writeSetting: (key: string, value: string | null) =>
+      writeExtensionSetting(sdk, context.extensionId, tokens.get, key, value),
   };
+}
+
+/**
+ * The extension data service, typed here rather than taken from
+ * `azure-devops-extension-api`.
+ *
+ * That package is not a dependency: it pulls a large surface for what we
+ * use, which is two methods. The contribution id below is the service's
+ * stable public id.
+ */
+export const EXTENSION_DATA_SERVICE_ID =
+  'ms.vss-features.extension-data-service';
+
+/** Organisation-wide scope. `User` would be per-person, which is wrong here. */
+const ORG_SCOPE = { scopeType: 'Default' } as const;
+
+type ExtensionDataManager = {
+  getValue<T>(
+    key: string,
+    options?: { scopeType: string },
+  ): Promise<T | undefined>;
+  setValue<T>(
+    key: string,
+    value: T,
+    options?: { scopeType: string },
+  ): Promise<T>;
+};
+
+type ExtensionDataService = {
+  getExtensionDataManager(
+    extensionId: string,
+    accessToken: string,
+  ): Promise<ExtensionDataManager>;
+};
+
+async function extensionDataManager(
+  sdk: AdoSdk,
+  extensionId: string,
+  getToken: () => Promise<string>,
+): Promise<ExtensionDataManager> {
+  const service = await sdk.getService<ExtensionDataService>(
+    EXTENSION_DATA_SERVICE_ID,
+  );
+  return service.getExtensionDataManager(extensionId, await getToken());
+}
+
+/**
+ * Absent and unreadable both come back as null.
+ *
+ * A host that will not answer must not stop the hub rendering: the caller
+ * falls back to its build-time default and says so.
+ */
+async function readExtensionSetting(
+  sdk: AdoSdk,
+  extensionId: string,
+  getToken: () => Promise<string>,
+  key: string,
+): Promise<string | null> {
+  try {
+    const manager = await extensionDataManager(sdk, extensionId, getToken);
+    const value = await manager.getValue<unknown>(key, ORG_SCOPE);
+    return typeof value === 'string' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Unlike reads, a failed write is reported: the admin must see it. */
+async function writeExtensionSetting(
+  sdk: AdoSdk,
+  extensionId: string,
+  getToken: () => Promise<string>,
+  key: string,
+  value: string | null,
+): Promise<void> {
+  const manager = await extensionDataManager(sdk, extensionId, getToken);
+  await manager.setValue(key, value ?? '', ORG_SCOPE);
 }
 
 /**

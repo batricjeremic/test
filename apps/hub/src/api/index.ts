@@ -10,6 +10,13 @@ export type {
   MoveRequestOptions,
 } from './client';
 export {
+  BFF_BASE_URL_SETTING_KEY,
+  parseBffBaseUrl,
+  resolveBffEndpoint,
+  saveBffBaseUrl,
+} from './baseUrl';
+export type { BffEndpoint, BffEndpointSource } from './baseUrl';
+export {
   ApiClientError,
   describeApiError,
   isApiClientError,

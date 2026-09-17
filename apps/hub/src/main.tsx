@@ -9,7 +9,7 @@
 import { Component, StrictMode, Suspense, lazy, useMemo } from 'react';
 import type { ComponentType, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ApiProvider } from './api';
+import { ApiProvider, resolveBffEndpoint } from './api';
 import { HostProvider, initHubHost } from './sdk';
 import type { HubHost } from './sdk';
 import { ToastProvider } from './state';
@@ -129,11 +129,17 @@ function FatalError({
   );
 }
 
-function HubRoot({ host }: { host: HubHost }): JSX.Element {
+function HubRoot({
+  host,
+  baseUrl,
+}: {
+  host: HubHost;
+  baseUrl: string;
+}): JSX.Element {
   const viewId = resolveViewId(host.context.contributionId);
   return (
     <HostProvider host={host}>
-      <ApiProvider>
+      <ApiProvider baseUrl={baseUrl}>
         <ToastProvider>
           <HubErrorBoundary host={host}>
             <ViewHost viewId={viewId} />
@@ -164,9 +170,15 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
+  // Where the BFF lives is an organisation-wide setting, read here rather
+  // than baked into the bundle, so one .vsix serves every environment.
+  // A host that will not answer falls back to the build-time default
+  // instead of leaving the hub with nothing to call.
+  const endpoint = await resolveBffEndpoint(host);
+
   root.render(
     <StrictMode>
-      <HubRoot host={host} />
+      <HubRoot host={host} baseUrl={endpoint.url} />
     </StrictMode>,
   );
   // The manifest declares `loaded: false`, so the host keeps its spinner

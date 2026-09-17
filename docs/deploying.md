@@ -75,7 +75,8 @@ devtunnel host -p 8080 --allow-anonymous
 # or: VS Code → Ports → Forward 8080 → set visibility Public
 ```
 
-Keep the URL — the hub bundle needs it at **build time**.
+Keep the URL. You enter it once in the admin screen after installing the
+extension — it is not compiled into the bundle. See §2d.
 
 CORS is already scoped to your organisation's Azure DevOps origin, derived from
 `ADO_ORG_URL`, so no extra configuration is needed. If the browser reports a
@@ -145,8 +146,8 @@ az containerapp create -g $RG -n $APP --environment cae-sprintboard \
 
 Container Apps gives the app an HTTPS FQDN with a certificate and supports
 WebSockets on that ingress, so the realtime channel works without extra
-configuration. That FQDN is what goes into `VITE_BFF_BASE_URL` when you build
-the hub.
+configuration. That FQDN is what you enter in the admin screen as the board API
+endpoint, once, per organisation.
 
 ### Pin it to one replica — this is not a default, it is a requirement
 
@@ -212,23 +213,62 @@ Publishing the `.vsix` to the Marketplace is deliberately **not** automated. It
 changes what every user in the organisation runs; the pipeline publishes the
 file as a build artifact and a human uploads it.
 
-### A wrinkle worth fixing: the .vsix is environment-specific
+## 2d. How environments actually work
 
-`VITE_BFF_BASE_URL` is read through `import.meta.env`, so it is **baked into the
-hub bundle at build time**. Nothing reads it at runtime.
+The extension is built **once** and the same `.vsix` is promoted through every
+environment. It carries no environment configuration: the hub reads its BFF
+endpoint from an organisation-wide extension setting at runtime, set in the
+admin screen. `VITE_BFF_BASE_URL` survives only as a local-development
+fallback, so a fresh installation with no endpoint set fails visibly and the
+admin screen says what to do.
 
-That means the same `.vsix` cannot be promoted from development to staging to
-production — each environment needs its own build, which is what the pipeline
-does. It works, but it breaks the build-once-promote-the-same-artifact principle
-the rest of the promotion flow is built on: the thing tested in staging is not
-byte-identical to the thing installed in production.
+That fixes the artifact. It does **not** by itself give you three environments,
+and this is the part worth understanding before you plan a rollout.
 
-The fix is small and worth doing before this goes wide: store the BFF URL in
-Azure DevOps extension data (`IExtensionDataManager`), set it once in the admin
-screen per organisation, and fall back to `VITE_BFF_BASE_URL` only when it is
-unset. Then one `.vsix` serves every environment and the promotion flow is
-honest. It is not done yet, and the pipeline reflects reality rather than the
-intent.
+### The constraint
+
+An extension is installed **per Azure DevOps organisation**, and its settings
+are stored per organisation **per extension id**. So:
+
+> one organisation + one extension id = one endpoint.
+
+You cannot point the same installed extension at development for one person and
+production for another. Three backend environments and one organisation do not
+compose through a single installation.
+
+### The two patterns that do work
+
+**A — Two extension ids in one organisation.** Publish a second, private
+extension with the id `cross-project-sprint-board-dev` alongside the real one.
+They install side by side because the ids differ, each keeps its own endpoint
+setting, and the non-production hub appears as a separate entry in Boards. This
+is the normal Azure DevOps pattern and works with a single organisation, which
+is what Expert Group has.
+
+Cost: two manifests to keep in step, and two things in the hub navigation.
+
+**B — A separate organisation per environment.** Cleanest isolation, and the
+only option if you need production data kept away from testing entirely. It is
+also the expensive one: separate organisations mean separate projects, teams,
+work items and licences — and since the board reads _real_ work items, a test
+organisation has no real work in it to look at.
+
+For a tool whose whole value is aggregating live work, B tends to make
+non-production testing meaningless. **A is the recommendation.**
+
+### What that means for the pipeline
+
+The `Package` stage builds one `.vsix` regardless. Which extension id it
+carries is a manifest choice, not a pipeline one. If you adopt pattern A, the
+non-production build overrides `publisher`/`id` in `vss-extension.json` —
+`tfx extension create` takes `--override` for exactly this.
+
+The three deployment stages deploy three **backends**. How many of them a human
+can reach from a hub depends on how many extension ids you install, which is
+the decision above.
+
+> This decision is not made yet. The code supports both; the pipeline assumes
+> one extension id until someone chooses.
 
 ## 3. Package the extension
 
@@ -248,8 +288,9 @@ must be one you own.
 ```bash
 npm i -g tfx-cli
 
-# The BFF URL is baked into the bundle at build time, not read at runtime.
-VITE_BFF_BASE_URL=https://<your-tunnel-or-host> pnpm --filter @eg/board-hub build
+# No environment configuration goes into the build: the hub reads its BFF
+# endpoint from an organisation-wide setting at runtime (§2d).
+pnpm --filter @eg/board-hub build
 
 cd apps/hub
 tfx extension create --manifest-globs vss-extension.json
@@ -280,6 +321,11 @@ else is requested.
 Do this in the admin screen, not with curl — it is the screen whose whole job is
 making misconfiguration visible.
 
+0. **Set the board API endpoint.** On a fresh installation the panel says no
+   endpoint is set and that the hub is falling back to the build default —
+   paste your tunnel or Container Apps URL and save. It takes effect the next
+   time the hub is opened. Nothing else on the screen will work until this is
+   right.
 1. Create a board definition: a name and a default grouping.
 2. Add **one source**: one project, one team. **Not eight.** The first run is
    about finding out what real Azure DevOps data does to the code; one team

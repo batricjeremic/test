@@ -12,6 +12,7 @@ import type { BoardDefinition } from '@eg/shared';
 import { describeApiError, useApiClient } from '../api';
 import type { BoardApiClient } from '../api';
 import { useOptionalHubHost } from '../sdk';
+import { BffEndpointPanel } from './BffEndpointPanel';
 import { BoardDefinitionForm } from './BoardDefinitionForm';
 import { CanonicalColumnsEditor } from './CanonicalColumnsEditor';
 import { MappingMatrix } from './MappingMatrix';
@@ -264,6 +265,13 @@ export function AdminView({
           <PersonOverridesEditor draft={draft} update={board.update} />
         </>
       )}
+
+      {/*
+        Organisation-level, not board-level: it is shown whether or not a
+        board is selected, and only when there is a host to read and write
+        the setting through.
+      */}
+      {host === null ? null : <BffEndpointPanel />}
     </div>
   );
 }

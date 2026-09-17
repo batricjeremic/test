@@ -62,6 +62,8 @@ export type FakeHubHostOptions = {
   /** Token the fake hands out. Rotated by `rotateToken`. */
   token?: string;
   theme?: ThemeVariables;
+  /** Organisation-wide settings the fake starts with. */
+  settings?: Readonly<Record<string, string>>;
 };
 
 export interface FakeHubHost extends HubHost {
@@ -76,6 +78,12 @@ export interface FakeHubHost extends HubHost {
   failNextToken(error: Error): void;
   /** Pushes a new theme to every `onThemeChanged` listener. */
   setTheme(theme: ThemeVariables): void;
+  /** The organisation-wide settings as they stand. */
+  readonly settings: Readonly<Record<string, string>>;
+  /** Makes the next `readSetting` resolve to null, as a refusing host does. */
+  failNextSettingRead(): void;
+  /** Makes the next `writeSetting` reject once. */
+  failNextSettingWrite(error: Error): void;
 }
 
 /** Builds a fake host. Safe to call in jsdom and in the browser. */
@@ -91,6 +99,11 @@ export function createFakeHubHost(
   let nextTokenError: Error | null = null;
   const loadFailures: string[] = [];
   const resizeCalls: [number | undefined, number | undefined][] = [];
+  const settings = new Map<string, string>(
+    Object.entries(options.settings ?? {}),
+  );
+  let refuseNextSettingRead = false;
+  let nextSettingWriteError: Error | null = null;
 
   const issueToken = async (): Promise<string> => {
     tokenRequestCount += 1;
@@ -125,6 +138,31 @@ export function createFakeHubHost(
     workItemUrl: (projectName, workItemId) =>
       `${context.organizationUrl}/${encodeURIComponent(projectName)}` +
       `/_workitems/edit/${workItemId}`,
+    readSetting: async (key) => {
+      if (refuseNextSettingRead) {
+        refuseNextSettingRead = false;
+        return null;
+      }
+      return settings.get(key) ?? null;
+    },
+    writeSetting: async (key, value) => {
+      if (nextSettingWriteError) {
+        const error = nextSettingWriteError;
+        nextSettingWriteError = null;
+        throw error;
+      }
+      if (value === null || value === '') settings.delete(key);
+      else settings.set(key, value);
+    },
+    get settings() {
+      return Object.fromEntries(settings);
+    },
+    failNextSettingRead: () => {
+      refuseNextSettingRead = true;
+    },
+    failNextSettingWrite: (error: Error) => {
+      nextSettingWriteError = error;
+    },
     get tokenRequestCount() {
       return tokenRequestCount;
     },
