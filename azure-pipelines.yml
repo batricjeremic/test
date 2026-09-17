@@ -5,19 +5,17 @@
 # This pipeline deploys whichever environment branch it was triggered by; it
 # never promotes anything itself.
 
+# One environment branch for now. Add `staging` and `production` here when
+# those environments exist — see the Deploy stage at the bottom.
 trigger:
   branches:
     include:
       - development
-      - staging
-      - production
 
 pr:
   branches:
     include:
       - development
-      - staging
-      - production
 
 variables:
   - name: nodeVersion
@@ -137,26 +135,19 @@ stages:
           # organisation runs. Download this artifact and upload it from the
           # Manage page.
 
+  # ---------------------------------------------------------------------
+  # ONE environment for now, deployed from `development`.
+  #
+  # The stage is a template on purpose: adding staging and production later
+  # is another two blocks like this one with their own environment name,
+  # branch and variable group. Nothing else changes. Until there is
+  # somewhere real to promote to, three stages would be ceremony over a
+  # single deployment.
+  # ---------------------------------------------------------------------
   - template: .azure/deploy-stage.yml
     parameters:
-      stageName: Deploy_Development
-      displayName: Deploy — development
-      environmentName: sprintboard-development
+      stageName: Deploy
+      displayName: Deploy
+      environmentName: sprintboard
       branch: refs/heads/development
-      variableGroup: sprintboard-development
-
-  - template: .azure/deploy-stage.yml
-    parameters:
-      stageName: Deploy_Staging
-      displayName: Deploy — staging
-      environmentName: sprintboard-staging
-      branch: refs/heads/staging
-      variableGroup: sprintboard-staging
-
-  - template: .azure/deploy-stage.yml
-    parameters:
-      stageName: Deploy_Production
-      displayName: Deploy — production
-      environmentName: sprintboard-production
-      branch: refs/heads/production
-      variableGroup: sprintboard-production
+      variableGroup: sprintboard

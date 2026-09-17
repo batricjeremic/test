@@ -184,13 +184,18 @@ and refuses to run if an already-applied migration's checksum changed.
 
 ## 2c. Doing it from a pipeline
 
-`azure-pipelines.yml` does all of the above. One `Verify` stage runs on every PR
-and every environment branch; three deployment stages fire on `development`,
-`staging` and `production` respectively, each bound to an Azure DevOps
-Environment so approvals and checks are configured there rather than in YAML.
+`azure-pipelines.yml` does all of the above. A `Verify` stage runs on every PR
+and on `development`, a `Package` stage builds the one `.vsix`, and a single
+`Deploy` stage deploys from `development`, bound to an Azure DevOps Environment
+so approvals and checks are configured there rather than in YAML.
 
-Per environment, create a variable group — `sprintboard-development`,
-`sprintboard-staging`, `sprintboard-production` — backed by Key Vault, holding:
+**There is one environment today.** The deploy stage is a template, so adding
+staging and production later is two more blocks with their own environment
+name, branch and variable group — nothing else changes. Until there is
+somewhere real to promote to, three stages would be ceremony over a single
+deployment.
+
+Create one variable group, `sprintboard`, backed by Key Vault, holding:
 
 | Variable            | What                                    |
 | ------------------- | --------------------------------------- |
@@ -222,8 +227,10 @@ admin screen. `VITE_BFF_BASE_URL` survives only as a local-development
 fallback, so a fresh installation with no endpoint set fails visibly and the
 admin screen says what to do.
 
-That fixes the artifact. It does **not** by itself give you three environments,
-and this is the part worth understanding before you plan a rollout.
+That fixes the artifact. It does **not** by itself give you three environments.
+Today there is one, which is the right number to start with — but the
+constraint below decides what adding more will cost, so it is worth knowing
+before anyone plans a rollout.
 
 ### The constraint
 
@@ -263,9 +270,9 @@ carries is a manifest choice, not a pipeline one. If you adopt pattern A, the
 non-production build overrides `publisher`/`id` in `vss-extension.json` —
 `tfx extension create` takes `--override` for exactly this.
 
-The three deployment stages deploy three **backends**. How many of them a human
-can reach from a hub depends on how many extension ids you install, which is
-the decision above.
+A deployment stage deploys a **backend**. How many backends a human can reach
+from a hub depends on how many extension ids you install, which is the decision
+above — and with one environment it does not arise yet.
 
 > This decision is not made yet. The code supports both; the pipeline assumes
 > one extension id until someone chooses.
