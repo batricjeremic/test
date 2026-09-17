@@ -39,7 +39,7 @@ describe('admin routes', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.json().boards).toHaveLength(1);
+      expect(response.json()).toHaveLength(1);
     });
   });
 
@@ -96,12 +96,19 @@ describe('admin routes', () => {
         method: 'PUT',
         url: `/api/boards/${TEST_BOARD_ID}/mappings`,
         headers: bearer('owner-token'),
-        payload: {
-          teamId: 'team-data',
-          sourceColumnId: `${DEV_BOARD}-col-2`,
-          canonicalColumnId: 'col-done',
-          targetState: 'Closed',
-        },
+        // The whole table now, which is how the mapping screen saves.
+        payload: [
+          ...harness.config.mappings.filter(
+            (mapping) => mapping.boardId === TEST_BOARD_ID,
+          ),
+          {
+            boardId: TEST_BOARD_ID,
+            teamId: 'team-data',
+            sourceColumnId: `${DEV_BOARD}-col-2`,
+            canonicalColumnId: 'col-done',
+            targetState: 'Closed',
+          },
+        ],
       });
 
       expect(response.statusCode).toBe(200);
@@ -118,26 +125,24 @@ describe('admin routes', () => {
         method: 'PUT',
         url: `/api/boards/${TEST_BOARD_ID}/columns`,
         headers: bearer('owner-token'),
-        payload: {
-          columns: [
-            {
-              id: 'col-todo',
-              name: 'To do',
-              order: 0,
-              stateCategory: 'Proposed',
-            },
-            {
-              id: 'col-done',
-              name: 'Done',
-              order: 1,
-              stateCategory: 'Completed',
-            },
-          ],
-        },
+        payload: [
+          {
+            id: 'col-todo',
+            name: 'To do',
+            order: 0,
+            stateCategory: 'Proposed',
+          },
+          {
+            id: 'col-done',
+            name: 'Done',
+            order: 1,
+            stateCategory: 'Completed',
+          },
+        ],
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.json().columns).toHaveLength(2);
+      expect(response.json()).toHaveLength(2);
       expect(snapshotKeys(harness)).toHaveLength(0);
     });
   });
@@ -155,19 +160,17 @@ describe('admin routes', () => {
         method: 'PUT',
         url: `/api/boards/${TEST_BOARD_ID}/sources`,
         headers: bearer('owner-token'),
-        payload: {
-          sources: [
-            {
-              projectId: 'Delivery',
-              teamId: 'team-dev',
-              backlogLevel: 'Microsoft.RequirementCategory',
-            },
-          ],
-        },
+        payload: [
+          {
+            projectId: 'Delivery',
+            teamId: 'team-dev',
+            backlogLevel: 'Microsoft.RequirementCategory',
+          },
+        ],
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.json().sources).toHaveLength(1);
+      expect(response.json()).toHaveLength(1);
       expect(columnKeys()).toHaveLength(0);
       expect(snapshotKeys(harness)).toHaveLength(0);
     });

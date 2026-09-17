@@ -391,6 +391,17 @@ export class FakeConfigStore implements ConfigStore {
     return this.mappings.filter((entry) => entry.boardId === boardId);
   }
 
+  async replaceColumnMappings(
+    boardId: string,
+    mappings: readonly ColumnMapping[],
+  ): Promise<ColumnMapping[]> {
+    this.mappings = [
+      ...this.mappings.filter((entry) => entry.boardId !== boardId),
+      ...mappings.map((mapping) => ({ ...mapping, boardId })),
+    ];
+    return this.listColumnMappings(boardId);
+  }
+
   async upsertColumnMapping(mapping: ColumnMapping): Promise<ColumnMapping> {
     this.mappings = this.mappings.filter(
       (entry) =>
@@ -421,6 +432,17 @@ export class FakeConfigStore implements ConfigStore {
 
   async listPersonOverrides(boardId: string): Promise<PersonOverride[]> {
     return this.overrides.filter((entry) => entry.boardId === boardId);
+  }
+
+  async replacePersonOverrides(
+    boardId: string,
+    overrides: readonly PersonOverride[],
+  ): Promise<PersonOverride[]> {
+    this.overrides = [
+      ...this.overrides.filter((entry) => entry.boardId !== boardId),
+      ...overrides.map((override) => ({ ...override, boardId })),
+    ];
+    return this.listPersonOverrides(boardId);
   }
 
   async upsertPersonOverride(

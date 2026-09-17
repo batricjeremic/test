@@ -13,7 +13,9 @@
  */
 import {
   boardGroupingSchema,
+  columnMappingSchema,
   nonEmptyStringSchema,
+  personOverrideSchema,
   stateCategorySchema,
 } from '@eg/shared';
 import type {
@@ -21,6 +23,7 @@ import type {
   BoardSource,
   CanonicalColumn,
   ColumnMapping,
+  PersonOverride,
 } from '@eg/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -63,26 +66,49 @@ export const patchBoardBodySchema = z
     message: 'at least one field must be set',
   });
 
-export const boardSourcesBodySchema = z.object({
-  sources: z.array(
-    z.object({
-      projectId: nonEmptyStringSchema,
-      teamId: nonEmptyStringSchema,
-      backlogLevel: nonEmptyStringSchema,
-    }),
-  ),
+/**
+ * Collection bodies are bare arrays, and collection responses are bare
+ * arrays, because that is what the hub sends and parses. They used to be
+ * wrapped (`{ sources: [...] }`) on this side only, which no test on
+ * either side could see: the hub's tests use a fake client and the API's
+ * use `inject` against expectations written here. See the contract test
+ * in `contract.test.ts`, which parses these responses with the very
+ * schemas the hub parses them with.
+ *
+ * `boardId` is taken from the path and never from the body, so a body
+ * naming a different board cannot write across boards.
+ */
+/** The whole definition, as the hub's `updateBoardDefinition` sends it. */
+export const putBoardBodySchema = z.object({
+  name: nonEmptyStringSchema,
+  defaultGrouping: boardGroupingSchema,
+  ownerDescriptor: nonEmptyStringSchema,
 });
 
-export const canonicalColumnsBodySchema = z.object({
-  columns: z.array(
-    z.object({
-      id: nonEmptyStringSchema,
-      name: nonEmptyStringSchema,
-      order: z.number().int().nonnegative(),
-      stateCategory: stateCategorySchema,
-    }),
-  ),
-});
+export const boardSourcesBodySchema = z.array(
+  z.object({
+    projectId: nonEmptyStringSchema,
+    teamId: nonEmptyStringSchema,
+    backlogLevel: nonEmptyStringSchema,
+  }),
+);
+
+export const canonicalColumnsBodySchema = z.array(
+  z.object({
+    id: nonEmptyStringSchema,
+    name: nonEmptyStringSchema,
+    order: z.number().int().nonnegative(),
+    stateCategory: stateCategorySchema,
+  }),
+);
+
+export const columnMappingsBodySchema = z.array(
+  columnMappingSchema.omit({ boardId: true }),
+);
+
+export const personOverridesBodySchema = z.array(
+  personOverrideSchema.omit({ boardId: true }),
+);
 
 export const columnMappingBodySchema = z.object({
   teamId: nonEmptyStringSchema,
@@ -154,7 +180,7 @@ export async function adminRoutes(
       options.orgId,
       auth.callOptions(),
     );
-    return reply.send({ boards: definitions });
+    return reply.send(definitions);
   });
 
   app.post(BOARDS_PATH, async (request, reply) => {
@@ -188,6 +214,34 @@ export async function adminRoutes(
     return reply.send(definition);
   });
 
+  /**
+   * The whole definition, which is what the hub sends after editing a
+   * board's name or grouping. `id` and `orgId` come from the path and the
+   * deployment, so the body cannot move a board to another organisation.
+   */
+  app.put(`${BOARDS_PATH}/:boardId`, async (request, reply) => {
+    const auth = requireAuth(request);
+    const call = auth.callOptions();
+    const boardId = parseBoardIdParam(request.params);
+    const body = parseWith(
+      putBoardBodySchema,
+      request.body,
+      'board definition',
+    );
+    await owned(boardId, await auth.acl(), call);
+    const updated = await config.updateBoardDefinition(
+      boardId,
+      {
+        name: body.name,
+        defaultGrouping: body.defaultGrouping,
+        ownerDescriptor: body.ownerDescriptor,
+      },
+      call,
+    );
+    await invalidator.invalidateBoard(boardId, call);
+    return reply.send(updated);
+  });
+
   app.patch(`${BOARDS_PATH}/:boardId`, async (request, reply) => {
     const auth = requireAuth(request);
     const call = auth.callOptions();
@@ -218,9 +272,7 @@ export async function adminRoutes(
     const call = auth.callOptions();
     const boardId = parseBoardIdParam(request.params);
     await loadBoardDefinition(config, boardId, call);
-    return reply.send({
-      sources: await config.listBoardSources(boardId, call),
-    });
+    return reply.send(await config.listBoardSources(boardId, call));
   });
 
   app.put(`${BOARDS_PATH}/:boardId/sources`, async (request, reply) => {
@@ -235,9 +287,9 @@ export async function adminRoutes(
     await owned(boardId, await auth.acl(), call);
 
     const previous = await config.listBoardSources(boardId, call);
-    const sources: BoardSource[] = body.sources.map((source) => ({
-      boardId,
+    const sources: BoardSource[] = body.map((source) => ({
       ...source,
+      boardId,
     }));
     const saved = await config.replaceBoardSources(boardId, sources, call);
     // Team boards and their columns are re-read for the new source set.
@@ -247,7 +299,7 @@ export async function adminRoutes(
       call,
     );
     await invalidator.invalidateBoard(boardId, call);
-    return reply.send({ sources: saved });
+    return reply.send(saved);
   });
 
   /* ---------------------------------------------------------------- */
@@ -259,9 +311,7 @@ export async function adminRoutes(
     const call = auth.callOptions();
     const boardId = parseBoardIdParam(request.params);
     await loadBoardDefinition(config, boardId, call);
-    return reply.send({
-      columns: await config.listCanonicalColumns(boardId, call),
-    });
+    return reply.send(await config.listCanonicalColumns(boardId, call));
   });
 
   app.put(`${BOARDS_PATH}/:boardId/columns`, async (request, reply) => {
@@ -274,13 +324,13 @@ export async function adminRoutes(
       'canonical columns',
     );
     await owned(boardId, await auth.acl(), call);
-    const columns: CanonicalColumn[] = body.columns.map((column) => ({
-      boardId,
+    const columns: CanonicalColumn[] = body.map((column) => ({
       ...column,
+      boardId,
     }));
     const saved = await config.replaceCanonicalColumns(boardId, columns, call);
     await invalidator.invalidateBoard(boardId, call);
-    return reply.send({ columns: saved });
+    return reply.send(saved);
   });
 
   /* ---------------------------------------------------------------- */
@@ -292,23 +342,30 @@ export async function adminRoutes(
     const call = auth.callOptions();
     const boardId = parseBoardIdParam(request.params);
     await loadBoardDefinition(config, boardId, call);
-    return reply.send({
-      mappings: await config.listColumnMappings(boardId, call),
-    });
+    return reply.send(await config.listColumnMappings(boardId, call));
   });
 
+  /**
+   * The whole mapping table, replaced in one transaction. The mapping
+   * screen edits a matrix and saves it whole; sending N upserts would
+   * leave a half-mapped board visible to everyone else if the tab closed
+   * in the middle, and would give no way to remove a mapping.
+   */
   app.put(`${BOARDS_PATH}/:boardId/mappings`, async (request, reply) => {
     const auth = requireAuth(request);
     const call = auth.callOptions();
     const boardId = parseBoardIdParam(request.params);
     const body = parseWith(
-      columnMappingBodySchema,
+      columnMappingsBodySchema,
       request.body,
-      'column mapping',
+      'column mappings',
     );
     await owned(boardId, await auth.acl(), call);
-    const mapping: ColumnMapping = { boardId, ...body };
-    const saved = await config.upsertColumnMapping(mapping, call);
+    const mappings: ColumnMapping[] = body.map((mapping) => ({
+      ...mapping,
+      boardId,
+    }));
+    const saved = await config.replaceColumnMappings(boardId, mappings, call);
     await invalidator.invalidateBoard(boardId, call);
     return reply.send(saved);
   });
@@ -332,6 +389,53 @@ export async function adminRoutes(
       );
       await invalidator.invalidateBoard(params.boardId, call);
       return reply.code(204).send();
+    },
+  );
+
+  /* ---------------------------------------------------------------- */
+  /* Person overrides                                                  */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Display tidying for contractors and shared accounts — never
+   * correctness, so a board reads fine with none of these. The hub has
+   * always called these two routes; they simply were not here, and the
+   * admin screen answered every load with "That route does not exist".
+   */
+  app.get(
+    `${BOARDS_PATH}/:boardId/person-overrides`,
+    async (request, reply) => {
+      const auth = requireAuth(request);
+      const call = auth.callOptions();
+      const boardId = parseBoardIdParam(request.params);
+      await loadBoardDefinition(config, boardId, call);
+      return reply.send(await config.listPersonOverrides(boardId, call));
+    },
+  );
+
+  app.put(
+    `${BOARDS_PATH}/:boardId/person-overrides`,
+    async (request, reply) => {
+      const auth = requireAuth(request);
+      const call = auth.callOptions();
+      const boardId = parseBoardIdParam(request.params);
+      const body = parseWith(
+        personOverridesBodySchema,
+        request.body,
+        'person overrides',
+      );
+      await owned(boardId, await auth.acl(), call);
+      const overrides: PersonOverride[] = body.map((override) => ({
+        ...override,
+        boardId,
+      }));
+      const saved = await config.replacePersonOverrides(
+        boardId,
+        overrides,
+        call,
+      );
+      await invalidator.invalidateBoard(boardId, call);
+      return reply.send(saved);
     },
   );
 

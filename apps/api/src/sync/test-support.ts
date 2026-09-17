@@ -336,6 +336,9 @@ export class FakeConfigStore implements ConfigStore {
   async listColumnMappings(): Promise<ColumnMapping[]> {
     return unsupported('listColumnMappings');
   }
+  async replaceColumnMappings(): Promise<ColumnMapping[]> {
+    return unsupported('replaceColumnMappings');
+  }
   async upsertColumnMapping(): Promise<ColumnMapping> {
     return unsupported('upsertColumnMapping');
   }
@@ -344,6 +347,9 @@ export class FakeConfigStore implements ConfigStore {
   }
   async listPersonOverrides(): Promise<PersonOverride[]> {
     return unsupported('listPersonOverrides');
+  }
+  async replacePersonOverrides(): Promise<PersonOverride[]> {
+    return unsupported('replacePersonOverrides');
   }
   async upsertPersonOverride(): Promise<PersonOverride> {
     return unsupported('upsertPersonOverride');

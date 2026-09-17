@@ -328,6 +328,17 @@ export interface ConfigStore {
     boardId: string,
     options: CallOptions,
   ): Promise<ColumnMapping[]>;
+  /**
+   * Replaces the whole mapping table for a board, in one transaction.
+   * The mapping screen edits a matrix and saves it whole; doing that as
+   * N upserts plus M deletes would leave a half-mapped board visible to
+   * everyone else if the tab closed in the middle.
+   */
+  replaceColumnMappings(
+    boardId: string,
+    mappings: readonly ColumnMapping[],
+    options: CallOptions,
+  ): Promise<ColumnMapping[]>;
   /** Keyed on (boardId, teamId, sourceColumnId). */
   upsertColumnMapping(
     mapping: ColumnMapping,
@@ -342,6 +353,12 @@ export interface ConfigStore {
 
   listPersonOverrides(
     boardId: string,
+    options: CallOptions,
+  ): Promise<PersonOverride[]>;
+  /** Replaces the whole override set for a board, in one transaction. */
+  replacePersonOverrides(
+    boardId: string,
+    overrides: readonly PersonOverride[],
     options: CallOptions,
   ): Promise<PersonOverride[]>;
   /** Keyed on (boardId, descriptor). */

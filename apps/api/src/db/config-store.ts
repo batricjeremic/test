@@ -340,6 +340,49 @@ export class PostgresConfigStore implements ConfigStore {
     return rows.map(toColumnMapping);
   }
 
+  async replaceColumnMappings(
+    boardId: string,
+    mappings: readonly ColumnMapping[],
+    options: CallOptions,
+  ): Promise<ColumnMapping[]> {
+    const parsed = mappings.map((mapping) =>
+      columnMappingSchema.parse({ ...mapping, boardId }),
+    );
+    return this.db.transaction(async (tx) => {
+      // Delete-then-insert rather than a diff: the matrix is small, and a
+      // diff would have to reproduce the key here to know what "the same
+      // mapping" means.
+      await tx.execute(
+        `DELETE FROM column_mapping WHERE board_id = $1`,
+        [boardId],
+        options,
+      );
+      for (const mapping of parsed) {
+        await tx.execute(
+          `INSERT INTO column_mapping (${MAPPING_COLUMNS})
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            mapping.boardId,
+            mapping.teamId,
+            mapping.sourceColumnId,
+            mapping.canonicalColumnId,
+            mapping.targetState,
+          ],
+          options,
+        );
+      }
+      const rows = await tx.query(
+        `SELECT ${MAPPING_COLUMNS} FROM column_mapping
+         WHERE board_id = $1
+         ORDER BY team_id ASC, source_column_id ASC`,
+        [boardId],
+        columnMappingRowSchema,
+        options,
+      );
+      return rows.map(toColumnMapping);
+    }, options);
+  }
+
   async upsertColumnMapping(
     mapping: ColumnMapping,
     options: CallOptions,
@@ -400,6 +443,44 @@ export class PostgresConfigStore implements ConfigStore {
       options,
     );
     return rows.map(toPersonOverride);
+  }
+
+  async replacePersonOverrides(
+    boardId: string,
+    overrides: readonly PersonOverride[],
+    options: CallOptions,
+  ): Promise<PersonOverride[]> {
+    const parsed = overrides.map((override) =>
+      personOverrideSchema.parse({ ...override, boardId }),
+    );
+    return this.db.transaction(async (tx) => {
+      await tx.execute(
+        `DELETE FROM person_override WHERE board_id = $1`,
+        [boardId],
+        options,
+      );
+      for (const override of parsed) {
+        await tx.execute(
+          `INSERT INTO person_override (${OVERRIDE_COLUMNS})
+           VALUES ($1, $2, $3, $4)`,
+          [
+            override.boardId,
+            override.descriptor,
+            override.displayName,
+            override.hidden,
+          ],
+          options,
+        );
+      }
+      const rows = await tx.query(
+        `SELECT ${OVERRIDE_COLUMNS} FROM person_override
+         WHERE board_id = $1 ORDER BY descriptor ASC`,
+        [boardId],
+        personOverrideRowSchema,
+        options,
+      );
+      return rows.map(toPersonOverride);
+    }, options);
   }
 
   async upsertPersonOverride(
