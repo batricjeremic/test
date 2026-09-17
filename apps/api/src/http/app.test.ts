@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { TRACE_ID_HEADER } from '@eg/shared';
 import { HEALTH_PATH, READY_PATH } from './health.js';
 import { BOARD_SPRINT_PATH } from './boards.js';
 import {
@@ -203,5 +204,55 @@ describe('buildApp', () => {
 describe('route table', () => {
   it('exposes the spec route', () => {
     expect(BOARD_SPRINT_PATH).toBe('/api/boards/:boardId/sprint');
+  });
+});
+
+/**
+ * The preflight the browser actually sends.
+ *
+ * `fastify.inject` never exercised CORS, and the hub's tests use a fake
+ * client, so nothing tied the two sides together: the hub sent
+ * `x-correlation-id` while the API allowed `x-trace-id`, which compiled,
+ * passed every test, and was refused by the browser before a single
+ * request reached the server. These assert the seam, not each side.
+ */
+describe('CORS preflight from the extension iframe', () => {
+  const ORIGIN = 'https://expertgroup.gallerycdn.vsassets.io';
+
+  it('allows the trace header the hub actually sends', async () => {
+    await withApp(async (harness) => {
+      const response = await harness.app.inject({
+        method: 'OPTIONS',
+        url: '/api/boards',
+        headers: {
+          origin: ORIGIN,
+          'access-control-request-method': 'GET',
+          'access-control-request-headers': `authorization,${TRACE_ID_HEADER}`,
+        },
+      });
+
+      expect(response.statusCode).toBeLessThan(300);
+      expect(response.headers['access-control-allow-origin']).toBe(ORIGIN);
+      const allowed = String(
+        response.headers['access-control-allow-headers'] ?? '',
+      ).toLowerCase();
+      expect(allowed).toContain(TRACE_ID_HEADER);
+      expect(allowed).toContain('authorization');
+    });
+  });
+
+  it('refuses an origin that is not Azure DevOps', async () => {
+    await withApp(async (harness) => {
+      const response = await harness.app.inject({
+        method: 'OPTIONS',
+        url: '/api/boards',
+        headers: {
+          origin: 'https://evil.example.com',
+          'access-control-request-method': 'GET',
+        },
+      });
+
+      expect(response.headers['access-control-allow-origin']).toBeUndefined();
+    });
   });
 });

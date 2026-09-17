@@ -4,6 +4,18 @@
  *
  * Spec: "Request flow for a board load", "Auth, permissions and security".
  */
+
+/**
+ * The header carrying a request's trace id, in BOTH directions.
+ *
+ * It lives here rather than on either side because the two sides must
+ * agree on it exactly: the hub sends it, and the BFF has to name it in
+ * `Access-Control-Allow-Headers` or the browser refuses the preflight
+ * before a single request is made. The hub and the API each picked their
+ * own name once, which compiled, passed every test, and failed the first
+ * time a real browser spoke to a real server.
+ */
+export const TRACE_ID_HEADER = 'x-trace-id';
 import { z } from 'zod';
 import {
   boardCardSchema,

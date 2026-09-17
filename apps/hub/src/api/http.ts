@@ -8,6 +8,7 @@
  * Zod schema from `@eg/shared`; a body that does not parse is an error,
  * not a cast.
  */
+import { TRACE_ID_HEADER } from '@eg/shared';
 import type { output as ZodOutput, ZodTypeAny } from 'zod';
 import { ApiClientError, parseApiErrorBody } from './errors';
 
@@ -36,7 +37,7 @@ export type HttpConfig = {
 
 export const DEFAULT_TIMEOUT_MS = 15_000;
 /** Header the BFF reads to stitch a hub action to its log lines. */
-export const CORRELATION_ID_HEADER = 'x-correlation-id';
+export const CORRELATION_ID_HEADER: string = TRACE_ID_HEADER;
 
 export type JsonRequest<S extends ZodTypeAny> = {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';

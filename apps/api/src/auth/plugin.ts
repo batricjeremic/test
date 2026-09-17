@@ -19,6 +19,7 @@
  * The caller's token lives on `request.egAuth.identity` for the life of
  * the request and is never logged, cached or persisted.
  */
+import { TRACE_ID_HEADER } from '@eg/shared';
 import type {
   FastifyInstance,
   FastifyReply,
@@ -48,7 +49,7 @@ export const TRACE_ID_HEADERS: readonly string[] = [
   'x-request-id',
 ];
 /** Echoed on every response, so a support ticket can carry the id. */
-export const TRACE_ID_RESPONSE_HEADER = 'x-trace-id';
+export const TRACE_ID_RESPONSE_HEADER: string = TRACE_ID_HEADER;
 
 /** A trace id a caller supplied has to look like one before we adopt it. */
 const SAFE_TRACE_ID = /^[A-Za-z0-9._-]{8,128}$/u;

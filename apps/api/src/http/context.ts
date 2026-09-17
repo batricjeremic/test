@@ -8,13 +8,14 @@
  * asks for a parsed value and gets a `ValidationError` if the caller sent
  * something else.
  */
+import { TRACE_ID_HEADER } from '@eg/shared';
 import type { FastifyRequest } from 'fastify';
 import type { ZodError, ZodType, ZodTypeDef } from 'zod';
 import { ValidationError } from '../errors.js';
 import type { Logger } from '../ports.js';
 
 /** Header the correlation id is adopted from and echoed on. */
-export const TRACE_HEADER = 'x-trace-id';
+export const TRACE_HEADER: string = TRACE_ID_HEADER;
 
 declare module 'fastify' {
   interface FastifyRequest {
