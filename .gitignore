@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+coverage/
+*.vsix
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.vite/
+.turbo/
+*.tsbuildinfo

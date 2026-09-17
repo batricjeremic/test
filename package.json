@@ -1,0 +1,31 @@
+{
+  "name": "@eg/sprint-board",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-project sprint board for Azure DevOps: hub extension plus backing service.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "pnpm -r --sequential build",
+    "typecheck": "pnpm -r --sequential typecheck",
+    "test": "pnpm -r --sequential test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev:api": "pnpm --filter @eg/board-api dev",
+    "dev:hub": "pnpm --filter @eg/board-hub dev",
+    "db:migrate": "pnpm --filter @eg/board-api db:migrate"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/node": "^22.19.1",
+    "eslint": "^9.39.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2"
+  }
+}
