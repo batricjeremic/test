@@ -92,9 +92,9 @@ describe('parseWebhookAuth', () => {
   });
 
   it('refuses half a credential, without echoing it', () => {
-    expect(() =>
-      parseWebhookAuth({ WEBHOOK_BASIC_USERNAME: 'hooks' }),
-    ).toThrow(ConfigError);
+    expect(() => parseWebhookAuth({ WEBHOOK_BASIC_USERNAME: 'hooks' })).toThrow(
+      ConfigError,
+    );
     try {
       parseWebhookAuth({ WEBHOOK_BASIC_PASSWORD: 'short' });
     } catch (error) {

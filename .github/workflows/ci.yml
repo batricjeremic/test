@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - development
+      - staging
+      - production
+  pull_request:
+    branches:
+      - development
+      - staging
+      - production
+
+concurrency:
+  # One run per ref. A new push cancels the previous run rather than queueing.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # @eg/shared is consumed through its built dist, so it must exist before
+      # anything downstream can typecheck.
+      - name: Build shared contract
+        run: pnpm --filter @eg/shared build
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format
+        run: pnpm format:check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      # Last, because a green test suite over code that does not bundle is not
+      # green. This also produces the hub bundle the .vsix is packaged from.
+      - name: Build
+        run: pnpm build
+
+  image:
+    name: API image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: verify
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build only — nothing is pushed from CI. Publishing the image and
+      # applying migrations are deployment steps, not verification steps.
+      - name: Build API image
+        run: docker build -f infra/Dockerfile -t eg-board-api:ci .
