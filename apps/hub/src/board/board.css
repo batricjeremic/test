@@ -94,7 +94,20 @@
   opacity: 0.75;
 }
 
+/*
+ * The collapse toggle was a bare triangle with no hit area to speak of,
+ * so it read as decoration rather than a control and people did not find
+ * it. It is now a square button the size of a touch target, with the
+ * chevron rotating rather than being swapped, so the state change is
+ * something you see happen instead of something you have to compare.
+ */
 .eg-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
   border: 1px solid transparent;
   background: none;
   color: var(--eg-text-secondary);
@@ -102,11 +115,52 @@
   cursor: pointer;
   font: inherit;
   line-height: 1;
-  padding: 0 var(--eg-space-1);
+  padding: 0;
+  transition:
+    background var(--eg-transition),
+    border-color var(--eg-transition);
+}
+
+.eg-collapse__chevron {
+  display: block;
+  transition: transform var(--eg-transition);
+}
+
+.eg-collapse[aria-expanded='false'] .eg-collapse__chevron {
+  transform: rotate(-90deg);
 }
 
 .eg-collapse:hover {
   background: var(--eg-surface-hover);
+  border-color: var(--eg-border);
+  color: var(--eg-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eg-collapse,
+  .eg-collapse__chevron {
+    transition: none;
+  }
+}
+
+/*
+ * A collapsed lane keeps its header but loses its cells, which left a
+ * row of the same height as an open one and made a collapsed board look
+ * no shorter. Shrinking it is the whole reason to collapse.
+ */
+.eg-board__cell[data-collapsed='true'] {
+  min-height: 0;
+  padding-block: var(--eg-space-1);
+  color: var(--eg-text-secondary);
+  font-size: var(--eg-font-size-sm);
+}
+
+.eg-board__lane-header[data-collapsed='true'] {
+  padding-block: var(--eg-space-1);
+}
+
+.eg-board__lane-header[data-collapsed='true'] .eg-lane {
+  gap: 0;
 }
 
 /* ----------------------------------------------------------------- */
@@ -311,4 +365,68 @@
   flex: 1 1 auto;
   border: 0;
   width: 100%;
+}
+
+/* ----------------------------------------------------------------- */
+/* Restrained polish                                                  */
+/* ----------------------------------------------------------------- */
+
+/*
+ * Azure DevOps is not rigid here: the extension owns everything inside
+ * its iframe, and `theme.css` already maps the host's palette onto our
+ * tokens. So this is a matter of taste rather than of what is allowed —
+ * and the taste is restraint, because a board that does not look like
+ * the product it is embedded in reads as a foreign object.
+ */
+
+/* A lane's own row reads as one band across the board. */
+.eg-board__lane-header {
+  border-left: 3px solid transparent;
+}
+
+.eg-board__lane-header[data-pinned='true'] {
+  border-left-color: var(--eg-accent);
+}
+
+.eg-board__lane-header[data-readonly='true'] {
+  border-left-color: var(--eg-border-strong);
+}
+
+/* The count is a number among words; give it its own shape. */
+.eg-column-head .eg-count {
+  padding: 1px var(--eg-space-1);
+  border-radius: 999px;
+  background: var(--eg-surface-hover);
+  color: var(--eg-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.eg-lane__meta {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Cards lift on hover so the drag target is obvious before the drag
+ * starts. Transform only, so nothing reflows and a long board does not
+ * repaint as the pointer crosses it.
+ */
+.eg-card {
+  transition:
+    box-shadow var(--eg-transition),
+    transform var(--eg-transition);
+}
+
+.eg-card[data-draggable='true']:hover {
+  box-shadow: var(--eg-shadow-overlay);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eg-card {
+    transition: none;
+  }
+
+  .eg-card[data-draggable='true']:hover {
+    transform: none;
+  }
 }

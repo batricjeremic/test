@@ -10,6 +10,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AppContainer } from '../container.js';
 import type { WebhookCardLookup } from '../realtime/index.js';
 import { adminRoutes } from './admin.js';
+import { directoryRoutes } from './directory.js';
 import { BoardReadService } from './board-service.js';
 import type { BoardReadDeps } from './board-service.js';
 import { boardRoutes } from './boards.js';
@@ -82,6 +83,12 @@ export async function registerRoutes(
     logger: ports.logger,
   });
 
+  await app.register(directoryRoutes, {
+    ado: ports.ado,
+    logger: ports.logger,
+    requestTimeoutMs: container.config.ado.requestTimeoutMs,
+  });
+
   await app.register(adminRoutes, {
     config: ports.config,
     invalidator: container.invalidator,
@@ -96,4 +103,5 @@ export { MoveService } from './move-service.js';
 export { BOARD_SPRINT_PATH } from './boards.js';
 export { MOVES_PATH } from './moves.js';
 export { BOARDS_PATH } from './admin.js';
+export { DIRECTORY_PATH } from './directory.js';
 export { HEALTH_PATH, READY_PATH } from './health.js';

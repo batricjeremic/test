@@ -254,7 +254,7 @@ export function AdminView({
         <>
           <UnmappedPanel unmapped={board.unmapped} />
           <BoardDefinitionForm draft={draft} update={board.update} />
-          <SourcesEditor draft={draft} update={board.update} />
+          <SourcesEditor draft={draft} update={board.update} client={client} />
           <CanonicalColumnsEditor draft={draft} update={board.update} />
           <MappingMatrix
             draft={draft}

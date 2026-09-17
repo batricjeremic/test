@@ -135,3 +135,40 @@ export const unmappedColumnRefSchema = z.object({
   cardCount: z.number().int().nonnegative(),
 });
 export type UnmappedColumnRef = z.infer<typeof unmappedColumnRefSchema>;
+
+/* ------------------------------------------------------------------ */
+/* The directory behind the source picker                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What an admin picks from when adding a source.
+ *
+ * These exist because the first real board was configured by copying
+ * GUIDs out of Azure DevOps URLs by hand — a team id is nowhere on the
+ * screen in Azure DevOps, and a mistyped one fails silently later rather
+ * than at the point of typing. The BFF reads them under the CALLER's own
+ * identity, not the service identity, so the list is the one that person
+ * is allowed to see rather than everything in the organisation.
+ */
+export const adoProjectRefSchema = z.object({
+  id: nonEmptyStringSchema,
+  name: nonEmptyStringSchema,
+});
+export type AdoProjectRef = z.infer<typeof adoProjectRefSchema>;
+
+export const adoTeamRefSchema = z.object({
+  id: nonEmptyStringSchema,
+  name: nonEmptyStringSchema,
+});
+export type AdoTeamRef = z.infer<typeof adoTeamRefSchema>;
+
+/**
+ * A team's board, which is what `BoardSource.backlogLevel` names. It is
+ * matched on id first and then on name, so either is a valid value —
+ * the picker sends the id.
+ */
+export const adoTeamBoardRefSchema = z.object({
+  id: nonEmptyStringSchema,
+  name: nonEmptyStringSchema,
+});
+export type AdoTeamBoardRef = z.infer<typeof adoTeamBoardRefSchema>;

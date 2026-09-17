@@ -60,6 +60,7 @@ function SwimlaneRowImpl({
         data-lane-id={lane.id}
         data-pinned={pinned ? 'true' : 'false'}
         data-readonly={readOnly ? 'true' : 'false'}
+        data-collapsed={collapsed ? 'true' : 'false'}
       >
         <div className="eg-lane">
           <div className="eg-lane__top">
@@ -69,7 +70,9 @@ function SwimlaneRowImpl({
               aria-expanded={!collapsed}
               onClick={() => ui.toggleLane(lane.id)}
             >
-              <span aria-hidden="true">{collapsed ? '▸' : '▾'}</span>
+              <span className="eg-collapse__chevron" aria-hidden="true">
+                ▾
+              </span>
               <span className="eg-visually-hidden">
                 {collapsed ? 'Expand' : 'Collapse'} {lane.label}
               </span>
@@ -79,20 +82,20 @@ function SwimlaneRowImpl({
             {readOnly ? <span className="eg-badge">Read only</span> : null}
           </div>
           <div className="eg-lane__meta">{formatLaneTotals(lane)}</div>
-          {personLoad !== null ? (
+          {collapsed || personLoad === null ? null : (
             <PersonCapacity
               person={personLoad}
               variant="lane"
               showName={false}
             />
-          ) : null}
-          {lane.hiddenCardCount > 0 ? (
+          )}
+          {!collapsed && lane.hiddenCardCount > 0 ? (
             <div className="eg-lane__meta">
               {lane.hiddenCardCount} card
               {lane.hiddenCardCount === 1 ? '' : 's'} hidden by permissions
             </div>
           ) : null}
-          {windows.length > 0 ? (
+          {!collapsed && windows.length > 0 ? (
             <div className="eg-lane__sprints">
               {windows.map((window) => (
                 <span key={window.teamId}>{formatIterationLine(window)}</span>

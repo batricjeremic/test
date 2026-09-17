@@ -54,9 +54,19 @@ function HostBackedApiProvider({
 
 /** The BFF client. Throws outside `ApiProvider`, which is a bug. */
 export function useApiClient(): BoardApiClient {
-  const client = useContext(ApiContext);
+  const client = useOptionalApiClient();
   if (!client) {
     throw new Error('useApiClient must be used inside <ApiProvider>');
   }
   return client;
+}
+
+/**
+ * The BFF client if there is one, for a component that takes an injected
+ * client as a prop. A hook cannot be called conditionally, so a component
+ * with its own client would otherwise still have to be wrapped in a
+ * provider it never reads.
+ */
+export function useOptionalApiClient(): BoardApiClient | null {
+  return useContext(ApiContext) ?? null;
 }

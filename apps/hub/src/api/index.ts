@@ -45,7 +45,7 @@ export {
 export type { BoardQuery } from './query';
 export { toMoveFailure } from './moveFailures';
 export type { MoveFailureContext } from './moveFailures';
-export { ApiProvider, useApiClient } from './ApiProvider';
+export { ApiProvider, useApiClient, useOptionalApiClient } from './ApiProvider';
 export type { ApiProviderProps } from './ApiProvider';
 export { createFakeBoardApiClient } from './fakeClient';
 export type {

@@ -7,6 +7,9 @@
  * leaving a move in flight so the card's locked state can be asserted.
  */
 import type {
+  AdoProjectRef,
+  AdoTeamBoardRef,
+  AdoTeamRef,
   BoardCard,
   BoardDefinition,
   BoardSnapshot,
@@ -43,6 +46,10 @@ export type FakeBoardApiClientOptions = {
   columns?: CanonicalColumn[];
   mappings?: ColumnMapping[];
   personOverrides?: PersonOverride[];
+  /** The directory the source picker offers. */
+  adoProjects?: AdoProjectRef[];
+  adoTeamsByProject?: Record<string, AdoTeamRef[]>;
+  adoBoardsByTeam?: Record<string, AdoTeamBoardRef[]>;
 };
 
 export interface FakeBoardApiClient extends BoardApiClient {
@@ -187,6 +194,16 @@ export function createFakeBoardApiClient(
     async replaceColumnMappings(_boardId, next) {
       mappings = [...next];
       return mappings;
+    },
+
+    async listAdoProjects() {
+      return options.adoProjects ?? [];
+    },
+    async listAdoTeams(projectId) {
+      return options.adoTeamsByProject?.[projectId] ?? [];
+    },
+    async listAdoTeamBoards(projectId, teamId) {
+      return options.adoBoardsByTeam?.[`${projectId}/${teamId}`] ?? [];
     },
 
     async listPersonOverrides() {

@@ -9,6 +9,9 @@
  */
 import { z } from 'zod';
 import {
+  adoProjectRefSchema,
+  adoTeamBoardRefSchema,
+  adoTeamRefSchema,
   boardDefinitionSchema,
   boardSnapshotSchema,
   boardSourceSchema,
@@ -19,6 +22,9 @@ import {
   personOverrideSchema,
 } from '@eg/shared';
 import type {
+  AdoProjectRef,
+  AdoTeamBoardRef,
+  AdoTeamRef,
   BoardDefinition,
   BoardSnapshot,
   BoardSource,
@@ -122,6 +128,27 @@ export interface BoardApiClient {
     options?: RequestOptions,
   ): Promise<ColumnMapping[]>;
 
+  /**
+   * `GET /api/ado/projects` — the directory the source picker offers.
+   * Read under the caller's own identity by the BFF, so it is the list
+   * that person may see rather than the whole organisation.
+   */
+  listAdoProjects(options?: RequestOptions): Promise<AdoProjectRef[]>;
+  /** `GET /api/ado/projects/{projectId}/teams` */
+  listAdoTeams(
+    projectId: string,
+    options?: RequestOptions,
+  ): Promise<AdoTeamRef[]>;
+  /**
+   * `GET /api/ado/projects/{projectId}/teams/{teamId}/boards` — the
+   * values `BoardSource.backlogLevel` may take for that team.
+   */
+  listAdoTeamBoards(
+    projectId: string,
+    teamId: string,
+    options?: RequestOptions,
+  ): Promise<AdoTeamBoardRef[]>;
+
   /** `GET /api/boards/{boardId}/person-overrides` */
   listPersonOverrides(
     boardId: string,
@@ -135,6 +162,9 @@ export interface BoardApiClient {
   ): Promise<PersonOverride[]>;
 }
 
+const adoProjectRefListSchema = z.array(adoProjectRefSchema);
+const adoTeamRefListSchema = z.array(adoTeamRefSchema);
+const adoTeamBoardRefListSchema = z.array(adoTeamBoardRefSchema);
 const boardDefinitionListSchema = z.array(boardDefinitionSchema);
 const boardSourceListSchema = z.array(boardSourceSchema);
 const canonicalColumnListSchema = z.array(canonicalColumnSchema);
@@ -283,6 +313,38 @@ export function createBoardApiClient(
         path: boardPath(boardId, '/mappings'),
         body: columnMappingListSchema.parse(mappings),
         schema: columnMappingListSchema,
+        options,
+      });
+      return response.data;
+    },
+
+    async listAdoProjects(options) {
+      const response = await requestJson(config, {
+        method: 'GET',
+        path: '/api/ado/projects',
+        schema: adoProjectRefListSchema,
+        options,
+      });
+      return response.data;
+    },
+
+    async listAdoTeams(projectId, options) {
+      const response = await requestJson(config, {
+        method: 'GET',
+        path: `/api/ado/projects/${encodeURIComponent(projectId)}/teams`,
+        schema: adoTeamRefListSchema,
+        options,
+      });
+      return response.data;
+    },
+
+    async listAdoTeamBoards(projectId, teamId, options) {
+      const response = await requestJson(config, {
+        method: 'GET',
+        path:
+          `/api/ado/projects/${encodeURIComponent(projectId)}` +
+          `/teams/${encodeURIComponent(teamId)}/boards`,
+        schema: adoTeamBoardRefListSchema,
         options,
       });
       return response.data;

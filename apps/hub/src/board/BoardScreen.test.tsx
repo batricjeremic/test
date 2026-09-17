@@ -633,6 +633,29 @@ describe('keyboard access', () => {
 
     await user.keyboard('[Escape]');
   });
+
+  // A board with thirty people is read one lane at a time; collapsing
+  // thirty headers by hand to find the two that matter is not something
+  // anyone does twice.
+  it('collapses and expands every lane from one control', async () => {
+    const user = userEvent.setup();
+    await renderBoard();
+
+    const toggle = await screen.findByRole('button', { name: 'Collapse all' });
+    await user.click(toggle);
+
+    expect(
+      screen.getByRole('button', { name: 'Expand all' }),
+    ).toBeInTheDocument();
+    for (const lane of screen.getAllByRole('rowheader')) {
+      expect(lane.getAttribute('data-collapsed')).toBe('true');
+    }
+
+    await user.click(screen.getByRole('button', { name: 'Expand all' }));
+    for (const lane of screen.getAllByRole('rowheader')) {
+      expect(lane.getAttribute('data-collapsed')).toBe('false');
+    }
+  });
 });
 
 // The fake host is deterministic; nothing here should reach a real clock.

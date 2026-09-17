@@ -20,6 +20,9 @@ export type BoardToolbarProps = {
   /** Whether the rolled-up per-person capacity panel is showing. */
   capacityOpen: boolean;
   onToggleCapacity(): void;
+  /** True when every lane is already collapsed. */
+  allCollapsed: boolean;
+  onToggleAllLanes(collapsed: boolean): void;
   onRefresh(): void;
 };
 
@@ -32,6 +35,8 @@ export function BoardToolbar({
   loading,
   capacityOpen,
   onToggleCapacity,
+  allCollapsed,
+  onToggleAllLanes,
   onRefresh,
 }: BoardToolbarProps): JSX.Element {
   return (
@@ -81,6 +86,14 @@ export function BoardToolbar({
       >
         {realtime.label}
       </span>
+
+      <button
+        type="button"
+        className="eg-button"
+        onClick={() => onToggleAllLanes(!allCollapsed)}
+      >
+        {allCollapsed ? 'Expand all' : 'Collapse all'}
+      </button>
 
       <button
         type="button"

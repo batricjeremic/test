@@ -127,6 +127,21 @@ export function BoardScreen({ filters }: BoardScreenProps): JSX.Element {
     setCapacityOpen((open) => !open);
   }, []);
 
+  /**
+   * Collapse and expand every lane at once. A board with thirty people on
+   * it is read one lane at a time, and collapsing thirty headers by hand
+   * to find the two that matter is not a thing anyone does twice.
+   */
+  const setAllLanesCollapsed = useCallback(
+    (collapsed: boolean) => {
+      setViewState((previous) => ({
+        ...previous,
+        collapsedSwimlaneIds: collapsed ? lanes.map((lane) => lane.id) : [],
+      }));
+    },
+    [lanes],
+  );
+
   const toggleLane = useCallback((laneId: string) => {
     setViewState((previous) => ({
       ...previous,
@@ -182,6 +197,11 @@ export function BoardScreen({ filters }: BoardScreenProps): JSX.Element {
         loading={board.loading}
         capacityOpen={capacityOpen}
         onToggleCapacity={toggleCapacity}
+        allCollapsed={
+          lanes.length > 0 &&
+          viewState.collapsedSwimlaneIds.length >= lanes.length
+        }
+        onToggleAllLanes={setAllLanesCollapsed}
         onRefresh={() => {
           void board.refetch();
         }}

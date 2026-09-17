@@ -76,6 +76,7 @@ function BoardCellImpl({
       aria-label={`${lane.label}, ${column.name}, ${cards.length} cards`}
       {...(dropState === undefined ? {} : { 'data-drop': dropState })}
       {...(readOnly ? { 'data-readonly': 'true' } : {})}
+      {...(collapsed ? { 'data-collapsed': 'true' } : {})}
       {...(blocked && decision !== null && !decision.allowed
         ? { title: `Cannot drop here: ${refusalPhrase(decision.reason)}` }
         : {})}
