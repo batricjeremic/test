@@ -25,7 +25,10 @@ import { z } from 'zod';
 import type { AdoIterationTimeframe, AdoWorkItem } from '../ado/types.js';
 import { ADO_FIELDS, readStringField } from '../ado/types.js';
 import type { TrimmedBoardSnapshot } from '../auth/trim.js';
-import { trimBoardSnapshotWithSummary, untrimmedSnapshot } from '../auth/trim.js';
+import {
+  trimBoardSnapshotWithSummary,
+  untrimmedSnapshot,
+} from '../auth/trim.js';
 import type { CacheInvalidator } from '../cache/index.js';
 import { cacheFingerprint, cacheKeys } from '../cache/index.js';
 import type {
@@ -68,11 +71,27 @@ export interface BoardReadDeps extends BoardContextDeps {
  * area path, so the hot and the cold path trim identically. `BoardCard`
  * carries no area path, and an area-level ACL needs one.
  */
-export const cachedBoardSnapshotSchema = z.object({
+export interface CachedBoardSnapshot {
+  readonly snapshot: BoardSnapshot;
+  /** Work item id (as a JSON key) -> `System.AreaPath`. */
+  readonly areaPaths: Readonly<Record<string, string>>;
+}
+
+const storedSnapshotSchema = z.object({
   snapshot: boardSnapshotSchema,
   areaPaths: z.record(z.string()),
 });
-export type CachedBoardSnapshot = z.infer<typeof cachedBoardSnapshotSchema>;
+
+/**
+ * The stored shape, as a schema whose input and output agree — which is
+ * what `CacheStore.get` is typed on. It validates through the shared
+ * schema, so a snapshot written by an older build is rejected, deleted
+ * and treated as a miss rather than served.
+ */
+export const cachedBoardSnapshotSchema = z.custom<CachedBoardSnapshot>(
+  (value) => storedSnapshotSchema.safeParse(value).success,
+  { message: 'stored board snapshot no longer matches its schema' },
+);
 
 /**
  * The snapshot key. The query decides the bytes, so it decides the key;
@@ -306,10 +325,9 @@ export class BoardReadService {
   }
 
   #realtimeStatus(snapshot: BoardSnapshot): RealtimeStatus {
-    return this.#realtimeStatusFor(
-      snapshot.boardId,
-      [...new Set(snapshot.teams.map((team) => team.projectId))],
-    );
+    return this.#realtimeStatusFor(snapshot.boardId, [
+      ...new Set(snapshot.teams.map((team) => team.projectId)),
+    ]);
   }
 
   #realtimeStatusFor(

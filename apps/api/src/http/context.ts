@@ -9,8 +9,7 @@
  * something else.
  */
 import type { FastifyRequest } from 'fastify';
-import type { ZodType } from 'zod';
-import { ZodError } from 'zod';
+import type { ZodError, ZodType, ZodTypeDef } from 'zod';
 import { ValidationError } from '../errors.js';
 import type { Logger } from '../ports.js';
 
@@ -20,15 +19,15 @@ export const TRACE_HEADER = 'x-trace-id';
 declare module 'fastify' {
   interface FastifyRequest {
     /** Set by the app's `onRequest` hook, before anything else runs. */
-    egTraceId?: string;
-    egLogger?: Logger;
+    egTraceId?: string | null;
+    egLogger?: Logger | null;
   }
 }
 
 /** The id this request is traced by. Always set by the app's hook. */
 export function requestTraceId(request: FastifyRequest): string {
   const value = request.egTraceId;
-  if (value !== undefined && value.length > 0) return value;
+  if (value !== undefined && value !== null && value.length > 0) return value;
   const header = request.headers[TRACE_HEADER];
   const first = Array.isArray(header) ? header[0] : header;
   return first ?? 'untraced';
@@ -58,7 +57,7 @@ export function issueDetails(error: ZodError): Record<string, unknown> {
  * hold a token, a path never does.
  */
 export function parseWith<T>(
-  schema: ZodType<T>,
+  schema: ZodType<T, ZodTypeDef, unknown>,
   value: unknown,
   what: string,
 ): T {

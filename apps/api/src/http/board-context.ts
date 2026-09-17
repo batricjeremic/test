@@ -7,22 +7,30 @@
  * once, here, from the config store plus cached Azure DevOps reads.
  */
 import type {
+  BoardCard,
   BoardDefinition,
   BoardSource,
   CanonicalColumn,
   ColumnMapping,
   PersonOverride,
 } from '@eg/shared';
-import type { AdoBoardReference } from '../ado/types.js';
+import type { AdoBoardReference, AdoWorkItem } from '../ado/types.js';
+import { ADO_FIELDS, readStringField } from '../ado/types.js';
 import { NotFoundError } from '../errors.js';
-import type { AreaPathIndex, TeamAreaPaths } from '../domain/index.js';
+import type {
+  AreaPathIndex,
+  CardCandidate,
+  MappingIndex,
+  TeamAreaPaths,
+  TeamBoardContext,
+} from '../domain/index.js';
 import {
   buildAreaPathIndex,
+  buildBoardCard,
   buildMappingIndex,
   buildTeamBoardContext,
+  dedupeCardCandidates,
   teamAreaPathsFrom,
-  type MappingIndex,
-  type TeamBoardContext,
 } from '../domain/index.js';
 import type { CallOptions, ConfigStore } from '../ports.js';
 import type { AdoReadDeps } from './ado-reads.js';
@@ -136,18 +144,8 @@ async function loadEntry(
 ): Promise<BoardTeamEntry> {
   const { projectId, teamId } = source;
   const references = await readTeamBoards(deps, projectId, teamId, options);
-  const reference = pickBoardReference(
-    references,
-    source.backlogLevel,
-    teamId,
-  );
-  const board = await readBoard(
-    deps,
-    projectId,
-    teamId,
-    reference.id,
-    options,
-  );
+  const reference = pickBoardReference(references, source.backlogLevel, teamId);
+  const board = await readBoard(deps, projectId, teamId, reference.id, options);
   const fieldValues = await readTeamFieldValues(
     deps,
     projectId,
@@ -190,9 +188,7 @@ export async function loadBoardContext(
       : await readDirectory(deps, sources, options);
 
   const entries = await Promise.all(
-    sources.map(async (source) =>
-      loadEntry(deps, source, directory, options),
-    ),
+    sources.map(async (source) => loadEntry(deps, source, directory, options)),
   );
 
   return {
@@ -211,4 +207,56 @@ export async function loadBoardContext(
     areaPathIndex: buildAreaPathIndex(entries.map((entry) => entry.areaPaths)),
     projectIds: [...new Set(sources.map((entry) => entry.projectId))],
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Work item -> card on this board                                     */
+/* ------------------------------------------------------------------ */
+
+/** A card and the team that owns it, both resolved server side. */
+export interface OwnedCard {
+  readonly card: BoardCard;
+  readonly team: TeamBoardContext;
+}
+
+/**
+ * The iteration the work item sits in. The write path needs it for the
+ * audit trail and the delta; `System.IterationId` is authoritative and
+ * the path is the fallback Azure DevOps always fills.
+ */
+export function iterationIdOf(workItem: AdoWorkItem): string {
+  return (
+    readStringField(workItem.fields, ADO_FIELDS.iterationId) ??
+    readStringField(workItem.fields, ADO_FIELDS.iterationPath) ??
+    'unknown-iteration'
+  );
+}
+
+/**
+ * Which team on this board owns the work item, by area path. A card no
+ * team claims is not on this board, and returning null says so rather
+ * than guessing — "every write is team-scoped ... a wrong team id fails
+ * the call outright".
+ */
+export function resolveOwnedCard(
+  context: BoardContext,
+  workItem: AdoWorkItem,
+): OwnedCard | null {
+  const iterationId = iterationIdOf(workItem);
+  const owned: CardCandidate[] = [];
+  for (const entry of context.entries) {
+    const candidate = buildBoardCard(workItem, {
+      index: context.index,
+      areaPaths: context.areaPathIndex,
+      team: entry.team,
+      iterationId,
+    });
+    if (candidate !== null && candidate.owned) owned.push(candidate);
+  }
+  const [card] = dedupeCardCandidates(owned);
+  if (card === undefined) return null;
+  const team = context.entries.find(
+    (entry) => entry.team.teamId === card.teamId,
+  )?.team;
+  return team === undefined ? null : { card, team };
 }

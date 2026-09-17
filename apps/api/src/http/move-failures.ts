@@ -169,9 +169,7 @@ export function toMoveFailure(
 }
 
 /** The mapping-missing failure, from the index when there is one. */
-export function mappingMissingFor(
-  context: MoveFailureContext,
-): MoveFailure {
+export function mappingMissingFor(context: MoveFailureContext): MoveFailure {
   const teamId = context.team?.teamId ?? context.card?.teamId ?? '';
   if (context.index !== null && teamId.length > 0) {
     return mappingMissingFailure(

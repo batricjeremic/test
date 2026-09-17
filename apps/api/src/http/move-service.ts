@@ -28,21 +28,16 @@ import type {
 } from '@eg/shared';
 import { buildColumnMovePatch } from '../ado/patch.js';
 import type { AdoWorkItem } from '../ado/types.js';
-import {
-  ADO_FIELDS,
-  readIdentityField,
-  readStringField,
-} from '../ado/types.js';
+import { readIdentityField, readStringField } from '../ado/types.js';
 import {
   canWriteProject,
   serviceCallOptions,
   userCallOptions,
 } from '../auth/identity.js';
 import type { CacheInvalidator } from '../cache/index.js';
-import type { CardCandidate, TeamBoardContext } from '../domain/index.js';
+import type { TeamBoardContext } from '../domain/index.js';
 import {
   buildBoardCard,
-  dedupeCardCandidates,
   resolveTeamColumnForCanonical,
   toIdentityRef,
 } from '../domain/index.js';
@@ -64,7 +59,12 @@ import type {
   Logger,
 } from '../ports.js';
 import type { BoardContext, BoardContextDeps } from './board-context.js';
-import { loadBoardContext, loadBoardDefinition } from './board-context.js';
+import {
+  iterationIdOf,
+  loadBoardContext,
+  loadBoardDefinition,
+  resolveOwnedCard,
+} from './board-context.js';
 import type { MoveFailureContext } from './move-failures.js';
 import { statusForFailure, toMoveFailure } from './move-failures.js';
 
@@ -98,11 +98,6 @@ interface ResolvedCard {
   readonly changedBy: IdentityRef | null;
   readonly changedAt: string | null;
 }
-
-const iterationIdOf = (workItem: AdoWorkItem): string =>
-  readStringField(workItem.fields, ADO_FIELDS.iterationId) ??
-  readStringField(workItem.fields, ADO_FIELDS.iterationPath) ??
-  'unknown-iteration';
 
 const changedAtOf = (workItem: AdoWorkItem): string | null => {
   const raw = readStringField(workItem.fields, 'System.ChangedDate');
@@ -139,7 +134,7 @@ export class MoveService {
     const failureContext = this.#failureContext(context, request, resolved);
 
     try {
-      return await this.#write(input, context, resolved, failureContext);
+      return await this.#write(input, context, resolved);
     } catch (error) {
       const appError = toAppError(error);
       if (!isMoveFailure(appError)) throw appError;
@@ -235,31 +230,14 @@ export class MoveService {
       });
     }
 
-    const iterationId = iterationIdOf(workItem);
-    const owned: CardCandidate[] = [];
-    for (const entry of context.entries) {
-      const candidate = buildBoardCard(workItem, {
-        index: context.index,
-        areaPaths: context.areaPathIndex,
-        team: entry.team,
-        iterationId,
-      });
-      // Only the team whose area path owns the card may be written to:
-      // a wrong team id names the wrong board field and fails outright.
-      if (candidate !== null && candidate.owned) owned.push(candidate);
-    }
-    const [card] = dedupeCardCandidates(owned);
-    const team =
-      card === undefined
-        ? undefined
-        : context.entries.find((entry) => entry.team.teamId === card.teamId)
-            ?.team;
-    if (card === undefined || team === undefined) {
+    const owned = resolveOwnedCard(context, workItem);
+    if (owned === null) {
       throw new NotFoundError(
         `Work item ${request.workItemId} is not on board ${context.definition.id}`,
         { details: { workItemId: request.workItemId } },
       );
     }
+    const { card, team } = owned;
 
     return {
       card,
@@ -280,7 +258,6 @@ export class MoveService {
     input: MoveInput,
     context: BoardContext,
     resolved: ResolvedCard,
-    failureContext: MoveFailureContext,
   ): Promise<MoveOutcome> {
     const { request, options } = input;
     const reverse = resolveTeamColumnForCanonical(

@@ -12,12 +12,11 @@
 import type { FastifyInstance } from 'fastify';
 import { boardSnapshotBody } from '../auth/trim.js';
 import { requireAuth } from '../auth/plugin.js';
-import type { Logger } from '../ports.js';
+import type { ConfigStore, Logger } from '../ports.js';
 import type { BoardReadService } from './board-service.js';
 import { loadBoardDefinition } from './board-context.js';
 import { requestLogger } from './context.js';
 import { parseBoardIdParam, parseSnapshotQuery } from './query.js';
-import type { ConfigStore } from '../ports.js';
 
 export const BOARD_SPRINT_PATH = '/api/boards/:boardId/sprint';
 
@@ -38,11 +37,7 @@ export async function boardRoutes(
     const logger = requestLogger(request, options.logger);
     const call = auth.callOptions();
 
-    const definition = await loadBoardDefinition(
-      options.config,
-      boardId,
-      call,
-    );
+    const definition = await loadBoardDefinition(options.config, boardId, call);
     // Fail closed: an ACL that cannot be resolved serves nothing.
     const acl = await auth.acl();
     const snapshot = await options.boards.load(
