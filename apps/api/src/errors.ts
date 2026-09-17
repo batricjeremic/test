@@ -332,7 +332,8 @@ export function mapAdoError(failure: AdoFailure): AppError {
       ? {}
       : { operation: failure.operation }),
   };
-  const message = text === '' ? `Azure DevOps returned ${failure.status}` : text;
+  const message =
+    text === '' ? `Azure DevOps returned ${failure.status}` : text;
   const retryAfter = headerSeconds(
     failure.headers,
     ADO_RATE_LIMIT_HEADERS.retryAfter,

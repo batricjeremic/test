@@ -466,10 +466,7 @@ export interface CallerAcl {
 }
 
 export interface AclResolver {
-  resolve(
-    identity: CallerIdentity,
-    options: CallOptions,
-  ): Promise<CallerAcl>;
+  resolve(identity: CallerIdentity, options: CallOptions): Promise<CallerAcl>;
   /** Drops the cached ACL for one identity, e.g. after a 403. */
   invalidate(descriptor: Descriptor, options: CallOptions): Promise<void>;
 }

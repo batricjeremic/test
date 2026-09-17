@@ -1,0 +1,435 @@
+/*
+ * Design tokens and layout primitives.
+ *
+ * Azure DevOps pushes its theme into the extension frame as CSS custom
+ * properties on :root (palette entries are bare "r,g,b" triples, used
+ * through rgba()). Everything below maps those onto --eg-* tokens with
+ * fallbacks, so the hub inherits light and dark from the shell and still
+ * looks right in a standalone `vite dev` run.
+ *
+ * Desktop and tablet only, per the spec's non-goals: there is no mobile
+ * breakpoint here on purpose.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces */
+  --eg-surface: rgba(var(--palette-neutral-0, 255, 255, 255), 1);
+  --eg-surface-raised: rgba(var(--palette-neutral-2, 250, 249, 248), 1);
+  --eg-surface-sunken: rgba(var(--palette-neutral-4, 244, 243, 242), 1);
+  --eg-surface-hover: rgba(var(--palette-neutral-8, 234, 233, 232), 1);
+
+  /* Lines */
+  --eg-border: rgba(var(--palette-neutral-10, 200, 198, 196), 1);
+  --eg-border-strong: rgba(var(--palette-neutral-20, 161, 159, 157), 1);
+
+  /* Text */
+  --eg-text: var(--text-primary-color, rgba(0, 0, 0, 0.9));
+  --eg-text-secondary: var(--text-secondary-color, rgba(0, 0, 0, 0.55));
+  --eg-text-disabled: var(--text-disabled-color, rgba(0, 0, 0, 0.38));
+  --eg-text-on-accent: var(--communication-foreground, #ffffff);
+
+  /* Intent */
+  --eg-accent: rgba(var(--palette-primary, 0, 120, 212), 1);
+  --eg-accent-soft: rgba(var(--palette-primary, 0, 120, 212), 0.12);
+  --eg-danger: rgba(var(--palette-error, 205, 74, 69), 1);
+  --eg-danger-soft: rgba(var(--palette-error, 205, 74, 69), 0.12);
+  --eg-warning: rgba(var(--palette-accent2, 245, 166, 35), 1);
+  --eg-warning-soft: rgba(var(--palette-accent2, 245, 166, 35), 0.16);
+  --eg-success: rgba(var(--palette-accent1, 16, 124, 16), 1);
+  --eg-success-soft: rgba(var(--palette-accent1, 16, 124, 16), 0.14);
+
+  /* Type */
+  --eg-font:
+    'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue',
+    sans-serif;
+  --eg-font-size: 14px;
+  --eg-font-size-sm: 12px;
+  --eg-font-size-lg: 16px;
+  --eg-line-height: 1.4;
+
+  /* Space, radius, elevation */
+  --eg-space-1: 4px;
+  --eg-space-2: 8px;
+  --eg-space-3: 12px;
+  --eg-space-4: 16px;
+  --eg-space-5: 24px;
+  --eg-space-6: 32px;
+  --eg-radius: 4px;
+  --eg-radius-lg: 6px;
+  --eg-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --eg-shadow-overlay: 0 6px 18px rgba(0, 0, 0, 0.22);
+
+  /* Board geometry */
+  --eg-column-min-width: 240px;
+  --eg-lane-header-width: 220px;
+  --eg-card-min-height: 72px;
+
+  --eg-focus-ring: 2px solid var(--eg-accent);
+  --eg-focus-offset: 1px;
+  --eg-transition: 120ms ease-out;
+}
+
+/*
+ * Standalone fallback only. Inside Azure DevOps the host's own variables
+ * win, because they are set on :root with concrete values.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --eg-surface: rgba(var(--palette-neutral-0, 31, 31, 31), 1);
+    --eg-surface-raised: rgba(var(--palette-neutral-2, 37, 37, 37), 1);
+    --eg-surface-sunken: rgba(var(--palette-neutral-4, 45, 45, 45), 1);
+    --eg-surface-hover: rgba(var(--palette-neutral-8, 56, 56, 56), 1);
+    --eg-border: rgba(var(--palette-neutral-10, 66, 66, 66), 1);
+    --eg-border-strong: rgba(var(--palette-neutral-20, 96, 94, 92), 1);
+    --eg-text: var(--text-primary-color, rgba(255, 255, 255, 0.9));
+    --eg-text-secondary: var(--text-secondary-color, rgba(255, 255, 255, 0.55));
+    --eg-text-disabled: var(--text-disabled-color, rgba(255, 255, 255, 0.38));
+    --eg-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --eg-shadow-overlay: 0 6px 18px rgba(0, 0, 0, 0.6);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--eg-surface);
+  color: var(--eg-text);
+  font-family: var(--eg-font);
+  font-size: var(--eg-font-size);
+  line-height: var(--eg-line-height);
+}
+
+.eg-root {
+  min-height: 100%;
+  /* Desktop and tablet only. */
+  min-width: 768px;
+}
+
+/* ----------------------------------------------------------------- */
+/* Layout primitives                                                  */
+/* ----------------------------------------------------------------- */
+
+.eg-hub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-3);
+  padding: var(--eg-space-4);
+  height: 100%;
+}
+
+.eg-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--eg-space-3);
+  flex-wrap: wrap;
+}
+
+.eg-toolbar__spacer {
+  flex: 1 1 auto;
+}
+
+.eg-panel {
+  background: var(--eg-surface-raised);
+  border: 1px solid var(--eg-border);
+  border-radius: var(--eg-radius-lg);
+  padding: var(--eg-space-4);
+}
+
+.eg-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-2);
+}
+
+.eg-row {
+  display: flex;
+  align-items: center;
+  gap: var(--eg-space-2);
+}
+
+/* The board grid: one lane-header column plus one per canonical column. */
+.eg-board {
+  display: grid;
+  grid-template-columns:
+    var(--eg-lane-header-width)
+    repeat(var(--eg-column-count, 4), minmax(var(--eg-column-min-width), 1fr));
+  gap: 1px;
+  background: var(--eg-border);
+  border: 1px solid var(--eg-border);
+  border-radius: var(--eg-radius-lg);
+  overflow: auto;
+}
+
+.eg-board__column-header,
+.eg-board__lane-header,
+.eg-board__cell {
+  background: var(--eg-surface);
+  padding: var(--eg-space-2);
+}
+
+.eg-board__column-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--eg-surface-sunken);
+  font-weight: 600;
+}
+
+.eg-board__lane-header {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--eg-surface-sunken);
+}
+
+.eg-board__cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-2);
+  min-height: var(--eg-card-min-height);
+}
+
+.eg-board__cell[data-drop='blocked'] {
+  background: var(--eg-surface-sunken);
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 6px,
+    var(--eg-surface-hover) 6px,
+    var(--eg-surface-hover) 12px
+  );
+  cursor: not-allowed;
+}
+
+.eg-board__cell[data-drop='over'] {
+  outline: var(--eg-focus-ring);
+  outline-offset: calc(-1 * var(--eg-focus-offset));
+  background: var(--eg-accent-soft);
+}
+
+/* ----------------------------------------------------------------- */
+/* Card                                                               */
+/* ----------------------------------------------------------------- */
+
+.eg-card {
+  position: relative;
+  background: var(--eg-surface-raised);
+  border: 1px solid var(--eg-border);
+  border-left: 3px solid var(--eg-accent);
+  border-radius: var(--eg-radius);
+  box-shadow: var(--eg-shadow-card);
+  padding: var(--eg-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-1);
+  transition:
+    box-shadow var(--eg-transition),
+    opacity var(--eg-transition);
+}
+
+.eg-card:focus-visible,
+.eg-button:focus-visible,
+.eg-pill:focus-visible {
+  outline: var(--eg-focus-ring);
+  outline-offset: var(--eg-focus-offset);
+}
+
+.eg-card[data-state='saving'] {
+  opacity: 0.72;
+  cursor: progress;
+}
+
+.eg-card[data-state='dragging'] {
+  box-shadow: var(--eg-shadow-overlay);
+}
+
+.eg-card[data-state='read-only'] {
+  border-left-color: var(--eg-border-strong);
+  cursor: default;
+}
+
+.eg-card__title {
+  font-weight: 600;
+}
+
+.eg-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--eg-space-1);
+  color: var(--eg-text-secondary);
+  font-size: var(--eg-font-size-sm);
+}
+
+/* ----------------------------------------------------------------- */
+/* Small pieces                                                       */
+/* ----------------------------------------------------------------- */
+
+.eg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--eg-space-1);
+  border: 1px solid var(--eg-border);
+  border-radius: 999px;
+  padding: 1px var(--eg-space-2);
+  font-size: var(--eg-font-size-sm);
+  background: var(--eg-surface);
+  color: var(--eg-text-secondary);
+}
+
+.eg-pill[data-tone='live'] {
+  border-color: var(--eg-success);
+  color: var(--eg-success);
+  background: var(--eg-success-soft);
+}
+
+.eg-pill[data-tone='degraded'] {
+  border-color: var(--eg-warning);
+  color: var(--eg-text);
+  background: var(--eg-warning-soft);
+}
+
+.eg-button {
+  border: 1px solid var(--eg-border-strong);
+  background: var(--eg-surface);
+  color: var(--eg-text);
+  border-radius: var(--eg-radius);
+  padding: var(--eg-space-1) var(--eg-space-3);
+  font: inherit;
+  cursor: pointer;
+}
+
+.eg-button:hover {
+  background: var(--eg-surface-hover);
+}
+
+.eg-button[data-variant='primary'] {
+  background: var(--eg-accent);
+  border-color: var(--eg-accent);
+  color: var(--eg-text-on-accent);
+}
+
+.eg-button:disabled {
+  color: var(--eg-text-disabled);
+  cursor: not-allowed;
+}
+
+/* Capacity bar: track, fill and the over-capacity threshold marker. */
+.eg-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--eg-surface-sunken);
+  border: 1px solid var(--eg-border);
+  overflow: hidden;
+}
+
+.eg-bar__fill {
+  height: 100%;
+  background: var(--eg-accent);
+  width: var(--eg-bar-value, 0%);
+}
+
+.eg-bar[data-over='true'] .eg-bar__fill {
+  background: var(--eg-danger);
+}
+
+.eg-bar__threshold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--eg-bar-threshold, 100%);
+  width: 2px;
+  background: var(--eg-text-secondary);
+}
+
+.eg-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--eg-border-strong);
+  border-top-color: var(--eg-accent);
+  animation: eg-spin 700ms linear infinite;
+}
+
+@keyframes eg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.eg-toasts {
+  position: fixed;
+  right: var(--eg-space-4);
+  bottom: var(--eg-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-2);
+  max-width: 420px;
+  z-index: 10;
+}
+
+.eg-toast {
+  background: var(--eg-surface-raised);
+  border: 1px solid var(--eg-border);
+  border-left: 4px solid var(--eg-accent);
+  border-radius: var(--eg-radius);
+  box-shadow: var(--eg-shadow-overlay);
+  padding: var(--eg-space-3);
+}
+
+.eg-toast[data-severity='error'] {
+  border-left-color: var(--eg-danger);
+}
+
+.eg-toast[data-severity='warning'] {
+  border-left-color: var(--eg-warning);
+}
+
+.eg-toast[data-severity='success'] {
+  border-left-color: var(--eg-success);
+}
+
+.eg-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.eg-fatal {
+  max-width: 640px;
+  margin: var(--eg-space-6) auto;
+}
+
+.eg-fatal__detail {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: var(--eg-font-size-sm);
+  color: var(--eg-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -234,9 +234,7 @@ export const adoBoardSchema = z.object({
   columns: z.array(adoBoardColumnSchema),
   rows: z.array(adoBoardRowSchema).optional(),
   fields: adoBoardFieldsSchema.optional(),
-  allowedMappings: z
-    .record(z.record(z.array(z.string())))
-    .optional(),
+  allowedMappings: z.record(z.record(z.array(z.string()))).optional(),
   _links: adoLinksSchema.optional(),
 });
 export type AdoBoard = z.infer<typeof adoBoardSchema>;
@@ -289,12 +287,8 @@ export const adoTeamMemberCapacitySchema = z.object({
   url: z.string().optional(),
   _links: adoLinksSchema.optional(),
 });
-export type AdoTeamMemberCapacity = z.infer<
-  typeof adoTeamMemberCapacitySchema
->;
-export const adoCapacityListSchema = adoListSchema(
-  adoTeamMemberCapacitySchema,
-);
+export type AdoTeamMemberCapacity = z.infer<typeof adoTeamMemberCapacitySchema>;
+export const adoCapacityListSchema = adoListSchema(adoTeamMemberCapacitySchema);
 export type AdoCapacityList = z.infer<typeof adoCapacityListSchema>;
 
 export const adoTeamSettingsDaysOffSchema = z.object({

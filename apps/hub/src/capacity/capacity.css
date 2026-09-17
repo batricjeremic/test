@@ -1,0 +1,208 @@
+/**
+ * Capacity view styling. Tokens come from `theme.css`, which `main.tsx`
+ * imports once; nothing here re-declares a token or a shell class.
+ */
+
+.eg-capacity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-2);
+  min-width: 0;
+}
+
+.eg-capacity[data-variant='lane'] {
+  gap: var(--eg-space-1);
+}
+
+.eg-capacity__heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--eg-space-2);
+  min-width: 0;
+}
+
+.eg-capacity__name {
+  font-weight: 600;
+  color: var(--eg-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eg-capacity__load {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--eg-text);
+}
+
+.eg-capacity__load[data-over='true'] {
+  color: var(--eg-danger);
+}
+
+.eg-capacity__load[data-unknown='true'] {
+  color: var(--eg-text-secondary);
+  font-weight: 500;
+}
+
+.eg-capacity__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--eg-space-1) var(--eg-space-3);
+  color: var(--eg-text-secondary);
+  font-size: var(--eg-font-size-sm, 12px);
+  font-variant-numeric: tabular-nums;
+}
+
+.eg-capacity__markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--eg-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eg-capacity__marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px var(--eg-space-2);
+  border: 1px solid var(--eg-border-strong);
+  border-radius: var(--eg-radius);
+  background: var(--eg-surface-sunken);
+  color: var(--eg-text-secondary);
+  font-size: var(--eg-font-size-sm, 12px);
+  white-space: nowrap;
+}
+
+/* Shape as well as colour: the glyph survives printing and colour blindness. */
+.eg-capacity__marker::before {
+  content: '\25CF';
+  font-size: 9px;
+  line-height: 1;
+}
+
+.eg-capacity__marker[data-kind='over-capacity'] {
+  border-color: var(--eg-danger);
+  background: var(--eg-danger-soft);
+  color: var(--eg-text);
+}
+
+.eg-capacity__marker[data-kind='over-capacity']::before {
+  content: '\25B2';
+}
+
+.eg-capacity__marker[data-kind='partial-capacity'],
+.eg-capacity__marker[data-kind='no-capacity'] {
+  border-color: var(--eg-warning);
+  background: var(--eg-warning-soft);
+  color: var(--eg-text);
+}
+
+.eg-capacity__marker[data-kind='partial-capacity']::before,
+.eg-capacity__marker[data-kind='no-capacity']::before {
+  content: '\25E7';
+}
+
+.eg-capacity__marker[data-kind='out-of-scope-teams']::before {
+  content: '\2020';
+}
+
+.eg-capacity__marker[data-kind='cards-without-hours']::before {
+  content: '\2013';
+}
+
+.eg-capacity__bar[data-unknown='true'] {
+  border-style: dashed;
+}
+
+.eg-capacity__split {
+  position: relative;
+}
+
+.eg-capacity__split-trigger {
+  font: inherit;
+  font-size: var(--eg-font-size-sm, 12px);
+  color: var(--eg-text-secondary);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--eg-radius);
+  padding: 1px var(--eg-space-1);
+  cursor: pointer;
+}
+
+.eg-capacity__split-trigger:hover,
+.eg-capacity__split-trigger:focus-visible {
+  color: var(--eg-text);
+  border-color: var(--eg-border);
+}
+
+.eg-capacity__split-trigger:focus-visible {
+  outline: var(--eg-focus-ring);
+}
+
+.eg-capacity__split-panel {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 2px);
+  left: 0;
+  min-width: 320px;
+  padding: var(--eg-space-2);
+  background: var(--eg-surface-raised);
+  border: 1px solid var(--eg-border-strong);
+  border-radius: var(--eg-radius-lg);
+  box-shadow: var(--eg-shadow-overlay);
+}
+
+.eg-capacity__split-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--eg-font-size-sm, 12px);
+  font-variant-numeric: tabular-nums;
+}
+
+.eg-capacity__split-table th,
+.eg-capacity__split-table td {
+  padding: 2px var(--eg-space-2);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.eg-capacity__split-table th[scope='col']:first-child,
+.eg-capacity__split-table th[scope='row'] {
+  text-align: left;
+}
+
+.eg-capacity__split-table thead th {
+  border-bottom: 1px solid var(--eg-border);
+  color: var(--eg-text-secondary);
+  font-weight: 600;
+}
+
+.eg-capacity-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eg-capacity-panel__person {
+  padding: var(--eg-space-2) 0;
+  border-top: 1px solid var(--eg-border);
+}
+
+.eg-capacity-panel__person:first-child {
+  border-top: none;
+}
+
+.eg-capacity-panel__footnote {
+  color: var(--eg-text-secondary);
+  font-size: var(--eg-font-size-sm, 12px);
+}
+
+.eg-capacity-panel__empty {
+  color: var(--eg-text-secondary);
+}

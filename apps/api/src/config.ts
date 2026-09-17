@@ -70,8 +70,7 @@ const urlVar = (protocols: readonly string[]) =>
 const logLevelVar = z
   .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal'], {
     errorMap: () => ({
-      message:
-        'must be one of trace, debug, info, warn, error, fatal',
+      message: 'must be one of trace, debug, info, warn, error, fatal',
     }),
   })
   .default('info');
@@ -110,10 +109,7 @@ export const envSchema = z.object({
     DEFAULT_CACHE_TTL_SECONDS['board-columns'],
     0,
   ),
-  CACHE_TTL_CAPACITY_SECONDS: integerVar(
-    DEFAULT_CACHE_TTL_SECONDS.capacity,
-    0,
-  ),
+  CACHE_TTL_CAPACITY_SECONDS: integerVar(DEFAULT_CACHE_TTL_SECONDS.capacity, 0),
   CACHE_TTL_BOARD_SNAPSHOT_SECONDS: integerVar(
     DEFAULT_CACHE_TTL_SECONDS['board-snapshot'],
     0,

@@ -7,13 +7,7 @@
   "description": "One sprint board across every Azure DevOps project, grouped by person or team, with drag-and-drop that writes back to the owning team's board.",
   "public": false,
   "categories": ["Azure Boards"],
-  "tags": [
-    "boards",
-    "sprint",
-    "capacity",
-    "cross-project",
-    "taskboard"
-  ],
+  "tags": ["boards", "sprint", "capacity", "cross-project", "taskboard"],
   "targets": [
     {
       "id": "Microsoft.VisualStudio.Services"

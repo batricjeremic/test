@@ -1,0 +1,212 @@
+/*
+ * Admin screen.
+ *
+ * Every colour comes from the --eg-* tokens in theme.css, which are
+ * mapped from the Azure DevOps shell, so this inherits light and dark
+ * without a second palette. Desktop and tablet only.
+ */
+
+.eg-admin {
+  gap: var(--eg-space-4);
+  overflow: auto;
+}
+
+.eg-admin__title {
+  margin: 0;
+  font-size: var(--eg-font-size-lg);
+}
+
+.eg-admin__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-3);
+}
+
+.eg-admin__section h2 {
+  margin: 0;
+  font-size: var(--eg-font-size-lg);
+}
+
+.eg-admin__hint {
+  margin: 0;
+  color: var(--eg-text-secondary);
+  font-size: var(--eg-font-size-sm);
+  max-width: 70ch;
+}
+
+.eg-admin__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-1);
+}
+
+.eg-admin__field > span {
+  color: var(--eg-text-secondary);
+  font-size: var(--eg-font-size-sm);
+}
+
+.eg-admin input[type='text'],
+.eg-admin select {
+  font: inherit;
+  color: var(--eg-text);
+  background: var(--eg-surface);
+  border: 1px solid var(--eg-border-strong);
+  border-radius: var(--eg-radius);
+  padding: var(--eg-space-1) var(--eg-space-2);
+  min-width: 0;
+}
+
+.eg-admin input[type='text']:focus-visible,
+.eg-admin select:focus-visible,
+.eg-admin input[type='radio']:focus-visible,
+.eg-admin input[type='checkbox']:focus-visible {
+  outline: var(--eg-focus-ring);
+  outline-offset: var(--eg-focus-offset);
+}
+
+.eg-admin__grid {
+  display: grid;
+  gap: var(--eg-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/* ---------------------------------------------------------------- */
+/* Unmapped headline                                                 */
+/* ---------------------------------------------------------------- */
+
+.eg-admin__unmapped {
+  border-left: 4px solid var(--eg-warning);
+}
+
+.eg-admin__unmapped[data-clear='true'] {
+  border-left-color: var(--eg-success);
+}
+
+.eg-admin__count {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.eg-admin__unmapped-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-1);
+}
+
+.eg-admin__unmapped-list li {
+  display: flex;
+  gap: var(--eg-space-2);
+  align-items: baseline;
+  padding: var(--eg-space-1) var(--eg-space-2);
+  background: var(--eg-warning-soft);
+  border-radius: var(--eg-radius);
+}
+
+/* ---------------------------------------------------------------- */
+/* Tables: sources, columns, matrix, overrides                       */
+/* ---------------------------------------------------------------- */
+
+.eg-admin__table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.eg-admin__table caption {
+  text-align: left;
+  color: var(--eg-text-secondary);
+  font-size: var(--eg-font-size-sm);
+  padding-bottom: var(--eg-space-2);
+}
+
+.eg-admin__table th,
+.eg-admin__table td {
+  border: 1px solid var(--eg-border);
+  padding: var(--eg-space-2);
+  text-align: left;
+  vertical-align: top;
+}
+
+.eg-admin__table thead th {
+  background: var(--eg-surface-sunken);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.eg-admin__table tbody th {
+  background: var(--eg-surface-raised);
+  font-weight: 600;
+}
+
+.eg-admin__matrix-scroll {
+  overflow: auto;
+  max-width: 100%;
+}
+
+.eg-admin__team-row th {
+  background: var(--eg-surface-sunken);
+}
+
+.eg-admin__cell-radio {
+  text-align: center;
+}
+
+.eg-admin__cell-radio[data-mapped='true'] {
+  background: var(--eg-accent-soft);
+}
+
+.eg-admin__row-unmapped th {
+  border-left: 3px solid var(--eg-warning);
+}
+
+.eg-admin__column-row[data-dragging='true'] {
+  opacity: 0.6;
+}
+
+.eg-admin__handle {
+  cursor: grab;
+}
+
+.eg-admin__order {
+  color: var(--eg-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- */
+/* Save bar                                                          */
+/* ---------------------------------------------------------------- */
+
+.eg-admin__savebar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--eg-surface);
+  padding-bottom: var(--eg-space-2);
+  border-bottom: 1px solid var(--eg-border);
+}
+
+.eg-admin__status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eg-space-1);
+}
+
+.eg-admin__status[data-tone='error'] {
+  color: var(--eg-danger);
+}
+
+.eg-admin__issues {
+  margin: 0;
+  padding-left: var(--eg-space-4);
+  color: var(--eg-danger);
+}
+
+.eg-admin__changes {
+  margin: 0;
+  padding-left: var(--eg-space-4);
+  color: var(--eg-text-secondary);
+}

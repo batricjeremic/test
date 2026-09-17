@@ -11,10 +11,7 @@ import {
   UNASSIGNED_LANE_ID,
   UNMAPPED_COLUMN_ID,
 } from './board.js';
-import {
-  boardFilterSetSchema,
-  EMPTY_BOARD_FILTER_SET,
-} from './filters.js';
+import { boardFilterSetSchema, EMPTY_BOARD_FILTER_SET } from './filters.js';
 
 const card = {
   workItemId: 4211,
