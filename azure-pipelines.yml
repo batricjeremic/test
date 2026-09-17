@@ -118,11 +118,17 @@ stages:
               set -euo pipefail
               npm i -g tfx-cli
               cd apps/hub
-              # The Marketplace refuses a version it has already seen, so the
-              # build number becomes the patch version.
+              # The Marketplace refuses a version it has already seen.
+              #
+              # --rev-version does NOT do this: it bumps relative to the
+              # manifest in the repository, which never changes, so every
+              # build produced the identical 0.1.1 and the second upload was
+              # rejected. Build.BuildId increases monotonically, so deriving
+              # the patch from it gives a version that is new every time
+              # without anyone having to remember to bump a file.
               tfx extension create \
                 --manifest-globs vss-extension.json \
-                --rev-version \
+                --override "{\"version\":\"0.1.$(Build.BuildId)\"}" \
                 --output-path "$(Build.ArtifactStagingDirectory)"
             displayName: Package .vsix
 
