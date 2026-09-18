@@ -58,6 +58,16 @@ export type AdminTeam = {
   readonly projectName: string;
   readonly backlogLevels: readonly string[];
   readonly columns: readonly TeamColumnRef[];
+  /**
+   * Cards in this team's sprint that carry NO board column at all.
+   *
+   * They are not a column and cannot be mapped: there is nothing to map
+   * from. They are work items that sit in the iteration without sitting
+   * on this team's board — Bugs and Tasks, when the team keeps bugs at
+   * task level. Counted here so the screen can say so, instead of the
+   * matrix growing a nameless row with hundreds of cards in it.
+   */
+  readonly cardsWithNoColumn: number;
 };
 
 /** A reason the draft may not be written, shown next to its section. */

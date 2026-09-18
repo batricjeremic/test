@@ -81,6 +81,8 @@ export function createHubHost(
     },
     workItemUrl: (projectName: string, workItemId: number) =>
       buildWorkItemUrl(context.organizationUrl, projectName, workItemId),
+    openWorkItem: (workItemId: number, openInNewTab = false) =>
+      openWorkItemForm(sdk, workItemId, openInNewTab),
     readSetting: (key: string) =>
       readExtensionSetting(sdk, context.extensionId, tokens.get, key),
     writeSetting: (key: string, value: string | null) =>
@@ -270,5 +272,42 @@ async function withTimeout<T>(
     return await Promise.race([work, guard]);
   } finally {
     if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The native work item form                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * `ms.vss-work-web.work-item-form-navigation-service`, typed here rather
+ * than taken from `azure-devops-extension-api` — the same reason as the
+ * extension data service below: one dependency for two interfaces is not
+ * worth it. The id and the signature are copied from Microsoft's own
+ * `WorkItemTrackingServices.ts`, not from memory.
+ */
+export const WORK_ITEM_FORM_NAVIGATION_SERVICE_ID =
+  'ms.vss-work-web.work-item-form-navigation-service';
+
+interface WorkItemFormNavigationService {
+  openWorkItem(workItemId: number, openInNewTab?: boolean): Promise<unknown>;
+}
+
+async function openWorkItemForm(
+  sdk: AdoSdk,
+  workItemId: number,
+  openInNewTab: boolean,
+): Promise<boolean> {
+  try {
+    const service = await sdk.getService<WorkItemFormNavigationService>(
+      WORK_ITEM_FORM_NAVIGATION_SERVICE_ID,
+    );
+    await service.openWorkItem(workItemId, openInNewTab);
+    return true;
+  } catch {
+    // An older host, or a contribution that is not available here. The
+    // caller shows a link instead; silently doing nothing would look
+    // like the card is simply not clickable.
+    return false;
   }
 }

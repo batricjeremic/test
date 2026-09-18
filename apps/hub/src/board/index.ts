@@ -7,7 +7,7 @@ export { BoardCardItem } from './BoardCardItem';
 export { BoardToasts } from './BoardToasts';
 export { FilterBar } from './FilterBar';
 export { UnmappedColumnsNotice } from './UnmappedColumnsNotice';
-export { WorkItemDialog } from './WorkItemDialog';
+export { WorkItemDrawer } from './WorkItemDrawer';
 export { useBoardDnd, refusalFailure, refusalPhrase } from './useBoardDnd';
 export type {
   ActiveDrag,

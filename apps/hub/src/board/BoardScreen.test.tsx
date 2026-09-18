@@ -81,12 +81,16 @@ function Harness(): JSX.Element {
   );
 }
 
+/** The fake host of the most recent render, for tests that assert on it. */
+let host: ReturnType<typeof createFakeHubHost> | null = null;
+
 async function renderBoard(
   client: FakeBoardApiClient = createFakeBoardApiClient(),
 ): Promise<FakeBoardApiClient> {
+  host = createFakeHubHost();
   render(
     <ApiProvider client={client}>
-      <HostProvider host={createFakeHubHost()}>
+      <HostProvider host={host}>
         <ToastProvider>
           <Harness />
         </ToastProvider>
@@ -184,6 +188,7 @@ const dataTeam = makeBoardTeamView({
 
 beforeEach(() => {
   dnd = null;
+  host = null;
   window.history.replaceState(null, '', '/');
 });
 
@@ -550,7 +555,11 @@ describe('BoardScreen filters and detail', () => {
     expect(window.location.search).toContain('unassigned=1');
   });
 
-  it('opens the native work item form in a dialog', async () => {
+  // The detail used to be a dialog framing dev.azure.com, which Azure
+  // DevOps refuses outright — it rendered "refused to connect" and
+  // nothing else. It is now a drawer of what the board already knows,
+  // and editing hands off to the host's own form.
+  it('opens a drawer and hands editing to the native form', async () => {
     await renderBoard();
     const user = userEvent.setup();
 
@@ -558,18 +567,25 @@ describe('BoardScreen filters and detail', () => {
       screen.getByRole('button', { name: 'Wire the hub to the BFF' }),
     );
 
-    const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveAccessibleName(
+    const drawer = await screen.findByRole('dialog');
+    expect(drawer).toHaveAccessibleName(
       'User Story 1001: Wire the hub to the BFF',
     );
     expect(
-      within(dialog).getByRole('link', { name: 'Open in Azure DevOps' }),
+      within(drawer).getByRole('link', { name: 'Open in a new tab' }),
     ).toHaveAttribute(
       'href',
       'https://dev.azure.com/expertgroup/Delivery/_workitems/edit/1001',
     );
 
-    await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+    await user.click(
+      within(drawer).getByRole('button', { name: 'Edit in Azure DevOps' }),
+    );
+    await waitFor(() => {
+      expect(host?.openedWorkItems).toEqual([1001]);
+    });
+
+    await user.click(within(drawer).getByRole('button', { name: 'Close' }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });

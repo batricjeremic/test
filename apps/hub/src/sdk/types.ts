@@ -62,6 +62,19 @@ export interface HubHost {
   /** Deep link to a work item's native form, for toasts and card detail. */
   workItemUrl(projectName: string, workItemId: number): string;
   /**
+   * Opens the work item in Azure DevOps' OWN form, over our frame.
+   *
+   * We used to render that form in an iframe. Azure DevOps refuses to be
+   * framed — `dev.azure.com refused to connect` — so the dialog was
+   * always going to be empty. The host service is the supported way, and
+   * it gives the real form with save, history and attachments rather
+   * than a reconstruction of it.
+   *
+   * Resolves false when the host does not offer the service, so the
+   * caller can fall back to a plain link instead of doing nothing.
+   */
+  openWorkItem(workItemId: number, openInNewTab?: boolean): Promise<boolean>;
+  /**
    * Reads an organisation-wide extension setting, or null when unset.
    *
    * Organisation-wide, not per-user: one administrator sets it and every

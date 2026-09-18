@@ -149,6 +149,19 @@ export function MappingMatrix({
                     {`${team.projectName} · ${team.teamName}`}
                   </th>
                 </tr>
+                {team.cardsWithNoColumn > 0 ? (
+                  <tr>
+                    <td colSpan={span} className="eg-admin__hint">
+                      {`${team.cardsWithNoColumn} card${
+                        team.cardsWithNoColumn === 1 ? '' : 's'
+                      } in this sprint are not on this team's board, so they
+                      carry no column and cannot be mapped. They are usually
+                      Bugs and Tasks, which sit under a story on the sprint
+                      taskboard rather than on the board these columns come
+                      from.`}
+                    </td>
+                  </tr>
+                ) : null}
                 {team.columns.map((teamColumn) => {
                   const mapping = findMapping(
                     draft.mappings,

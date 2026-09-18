@@ -37,7 +37,7 @@ import { BoardToasts } from './BoardToasts';
 import { BoardToolbar } from './BoardToolbar';
 import { FilterBar } from './FilterBar';
 import { UnmappedColumnsNotice } from './UnmappedColumnsNotice';
-import { WorkItemDialog } from './WorkItemDialog';
+import { WorkItemDrawer } from './WorkItemDrawer';
 import { ActiveDragProvider } from './boardUi';
 import type { BoardUi } from './boardUi';
 import {
@@ -180,6 +180,10 @@ export function BoardScreen({ filters }: BoardScreenProps): JSX.Element {
     viewState.openWorkItemId === null
       ? null
       : (board.cardsById.get(viewState.openWorkItemId) ?? null);
+  const openTeam =
+    openCard === null
+      ? undefined
+      : board.teams.find((team) => team.teamId === openCard.teamId);
   const openProjectName =
     openCard === null
       ? ''
@@ -283,12 +287,20 @@ export function BoardScreen({ filters }: BoardScreenProps): JSX.Element {
       ) : null}
 
       {openCard !== null ? (
-        <WorkItemDialog
+        <WorkItemDrawer
           card={openCard}
           projectName={openProjectName}
+          teamName={openTeam?.iteration.teamName ?? openCard.teamId}
+          columnName={
+            columns.find((column) => column.id === openCard.canonicalColumnId)
+              ?.name ?? openCard.sourceColumn
+          }
           url={
             host?.workItemUrl(openProjectName, openCard.workItemId) ??
             `#work-item-${openCard.workItemId}`
+          }
+          onOpenNative={async (workItemId) =>
+            (await host?.openWorkItem(workItemId)) ?? false
           }
           onClose={closeWorkItem}
         />

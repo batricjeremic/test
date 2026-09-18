@@ -67,6 +67,10 @@ export type FakeHubHostOptions = {
 };
 
 export interface FakeHubHost extends HubHost {
+  /** Work items the hub asked the host to open, in order. */
+  readonly openedWorkItems: readonly number[];
+  /** Makes `openWorkItem` report the service as unavailable. */
+  refuseWorkItemForm(): void;
   /** How many times the hub asked for a token. */
   readonly tokenRequestCount: number;
   readonly loadSucceededCount: number;
@@ -103,6 +107,8 @@ export function createFakeHubHost(
     Object.entries(options.settings ?? {}),
   );
   let refuseNextSettingRead = false;
+  let refuseWorkItemForm = false;
+  const openedWorkItems: number[] = [];
   let nextSettingWriteError: Error | null = null;
 
   const issueToken = async (): Promise<string> => {
@@ -138,6 +144,11 @@ export function createFakeHubHost(
     workItemUrl: (projectName, workItemId) =>
       `${context.organizationUrl}/${encodeURIComponent(projectName)}` +
       `/_workitems/edit/${workItemId}`,
+    openWorkItem: async (workItemId) => {
+      if (refuseWorkItemForm) return false;
+      openedWorkItems.push(workItemId);
+      return true;
+    },
     readSetting: async (key) => {
       if (refuseNextSettingRead) {
         refuseNextSettingRead = false;
@@ -184,6 +195,12 @@ export function createFakeHubHost(
     setTheme: (next: ThemeVariables) => {
       theme = next;
       for (const listener of listeners) listener(next);
+    },
+    get openedWorkItems() {
+      return openedWorkItems;
+    },
+    refuseWorkItemForm: () => {
+      refuseWorkItemForm = true;
     },
   };
 }

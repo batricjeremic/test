@@ -78,3 +78,49 @@ describe('MappingMatrix', () => {
     expect(enabled).toHaveValue('Code Review');
   });
 });
+
+/**
+ * The live board showed a nameless row carrying 27 cards on one team and
+ * 72 on another. Those are work items in the sprint that are not on the
+ * team's board at all — Bugs and Tasks, when the team keeps bugs at task
+ * level — so they have no column, and a row offering to map "" was both
+ * meaningless and the biggest number on the screen.
+ */
+describe('cards that are not on the team board', () => {
+  it('counts them instead of offering a nameless row to map', () => {
+    const teams = buildAdminTeams(
+      [
+        {
+          boardId: 'board-1',
+          projectId: 'p-data',
+          teamId: 't-data',
+          backlogLevel: 'b-stories',
+        },
+      ],
+      [],
+      [
+        {
+          projectId: 'p-data',
+          teamId: 't-data',
+          teamName: 'DataAI Team',
+          sourceColumn: '',
+          cardCount: 27,
+        },
+        {
+          projectId: 'p-data',
+          teamId: 't-data',
+          teamName: 'DataAI Team',
+          sourceColumn: 'Active',
+          cardCount: 3,
+        },
+      ],
+      new Map(),
+    );
+
+    expect(teams).toHaveLength(1);
+    expect(teams[0]?.cardsWithNoColumn).toBe(27);
+    expect(teams[0]?.columns.map((column) => column.sourceColumnId)).toEqual([
+      'Active',
+    ]);
+  });
+});

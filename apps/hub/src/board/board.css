@@ -324,47 +324,95 @@
 }
 
 /* ----------------------------------------------------------------- */
-/* Work item dialog                                                   */
+/* Work item drawer                                                   */
 /* ----------------------------------------------------------------- */
 
-.eg-dialog {
+/*
+ * A drawer, not a modal: the lane the card sits in is half of what the
+ * reader is looking at, so the board stays visible behind it. What used
+ * to be here framed dev.azure.com in an iframe, which Azure DevOps
+ * refuses outright — the panel showed "refused to connect" and nothing
+ * else.
+ */
+.eg-drawer {
   position: fixed;
   inset: 0;
   z-index: 20;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.32);
 }
 
-.eg-dialog__panel {
+.eg-drawer__panel {
   background: var(--eg-surface);
-  border: 1px solid var(--eg-border);
-  border-radius: var(--eg-radius-lg);
+  border-left: 1px solid var(--eg-border);
   box-shadow: var(--eg-shadow-overlay);
-  width: min(1080px, 92vw);
-  height: min(760px, 88vh);
+  width: min(420px, 92vw);
+  height: 100%;
+  padding: var(--eg-space-4);
   display: flex;
   flex-direction: column;
+  gap: var(--eg-space-3);
+  overflow-y: auto;
+  animation: eg-drawer-in 140ms ease-out;
 }
 
-.eg-dialog__head {
+@keyframes eg-drawer-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eg-drawer__panel {
+    animation: none;
+  }
+}
+
+.eg-drawer__head {
   display: flex;
   align-items: center;
   gap: var(--eg-space-2);
-  padding: var(--eg-space-3);
-  border-bottom: 1px solid var(--eg-border);
 }
 
-.eg-dialog__title {
+.eg-drawer__title {
   margin: 0;
   font-size: var(--eg-font-size-lg);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
-.eg-dialog__frame {
-  flex: 1 1 auto;
-  border: 0;
-  width: 100%;
+/*
+ * Label above value rather than side by side: a long display name or a
+ * tag list wraps without pushing the labels out of alignment.
+ */
+.eg-drawer__facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: var(--eg-space-4);
+  row-gap: var(--eg-space-2);
+  align-items: baseline;
+}
+
+.eg-drawer__facts dt {
+  color: var(--eg-text-secondary);
+  font-size: var(--eg-font-size-sm);
+}
+
+.eg-drawer__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.eg-drawer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--eg-space-2);
+  margin-top: auto;
+  padding-top: var(--eg-space-3);
+  border-top: 1px solid var(--eg-border);
 }
 
 /* ----------------------------------------------------------------- */

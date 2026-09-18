@@ -202,6 +202,7 @@ export function buildAdminTeams(
       projectName: named?.projectName ?? source.projectId,
       backlogLevels: [source.backlogLevel],
       columns: [],
+      cardsWithNoColumn: 0,
     });
   }
 
@@ -233,7 +234,22 @@ export function buildAdminTeams(
 
   for (const mapping of mappings)
     addColumn(mapping.teamId, mapping.sourceColumnId);
-  for (const ref of unmapped) addColumn(ref.teamId, ref.sourceColumn);
+  for (const ref of unmapped) {
+    // An empty source column is not a column. It is a card that is in the
+    // sprint but not on this team's board, and it used to render as a
+    // nameless row in the matrix carrying most of the board's cards.
+    if (ref.sourceColumn.trim() === '') {
+      const team = byTeam.get(ref.teamId);
+      if (team) {
+        byTeam.set(ref.teamId, {
+          ...team,
+          cardsWithNoColumn: team.cardsWithNoColumn + ref.cardCount,
+        });
+      }
+      continue;
+    }
+    addColumn(ref.teamId, ref.sourceColumn);
+  }
   for (const extra of extraColumns)
     addColumn(extra.teamId, extra.sourceColumnId);
 
