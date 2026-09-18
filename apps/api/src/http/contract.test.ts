@@ -25,7 +25,10 @@ import {
   canonicalColumnSchema,
   columnMappingSchema,
   personOverrideSchema,
+  encodeBoardQuery,
+  EMPTY_BOARD_FILTER_SET,
 } from '@eg/shared';
+import type { BoardSnapshotQuery } from '@eg/shared';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
@@ -35,6 +38,7 @@ import {
   TEST_BOARD_ID,
   type TestHarness,
 } from './test-support.js';
+import { parseSnapshotQuery } from './query.js';
 
 const withBoard = async (
   body: (harness: TestHarness) => Promise<void>,
@@ -171,6 +175,80 @@ describe('the shape the hub actually parses', () => {
         name: 'Renamed by contract test',
         defaultGrouping: 'team',
       });
+    });
+  });
+});
+
+/**
+ * The query string is the other half of the contract, and it drifted the
+ * same way the response bodies did: the hub wrote `mode`, `projects`,
+ * `types`, `unassigned` while this package read `window`, `projectIds`,
+ * `workItemTypes`, `unassignedOnly`. Only `tags` and `states` coincided,
+ * so those were the only two filters that ever worked — and the whole
+ * alignment picker was a no-op, because `mode` was never read and the
+ * window silently defaulted to the current sprint.
+ *
+ * Nothing failed: an unknown query parameter is ignored, not rejected.
+ * So the only way to catch it is to encode with the hub's encoder and
+ * decode with the BFF's parser, which is what this does.
+ */
+describe('the query string the hub actually sends', () => {
+  const ROUND_TRIP: readonly BoardSnapshotQuery[] = [
+    {
+      alignment: { mode: 'each-team-current' },
+      grouping: 'person',
+      filters: {
+        projectIds: ['Delivery', 'Data'],
+        teamIds: ['team-dev'],
+        workItemTypes: ['User Story'],
+        tags: ['risk'],
+        states: ['Active'],
+        unassignedOnly: true,
+      },
+    },
+    {
+      alignment: {
+        mode: 'date-window',
+        window: { start: '2026-09-01', end: '2026-09-30' },
+      },
+      grouping: 'team',
+      filters: EMPTY_BOARD_FILTER_SET,
+    },
+    {
+      alignment: { mode: 'named-iteration', iterationPath: 'Delivery\\S 7' },
+      grouping: null,
+      filters: EMPTY_BOARD_FILTER_SET,
+    },
+  ];
+
+  for (const query of ROUND_TRIP) {
+    it(`survives the round trip for ${query.alignment.mode}`, () => {
+      const encoded = encodeBoardQuery(query);
+      expect(parseSnapshotQuery(Object.fromEntries(encoded))).toEqual(query);
+    });
+  }
+
+  it('actually filters the board it is given', async () => {
+    await withBoard(async (harness) => {
+      const all = await harness.app.inject({
+        url: `/api/boards/${TEST_BOARD_ID}/sprint`,
+        headers: bearer('owner-token'),
+      });
+      const total = (all.json() as { cards: unknown[] }).cards.length;
+      expect(total).toBeGreaterThan(0);
+
+      // A type no card has: if the parameter reaches the filter at all,
+      // this is empty. It came back full for months.
+      const encoded = encodeBoardQuery({
+        alignment: { mode: 'each-team-current' },
+        grouping: null,
+        filters: { ...EMPTY_BOARD_FILTER_SET, workItemTypes: ['Impediment'] },
+      });
+      const filtered = await harness.app.inject({
+        url: `/api/boards/${TEST_BOARD_ID}/sprint?${encoded.toString()}`,
+        headers: bearer('owner-token'),
+      });
+      expect((filtered.json() as { cards: unknown[] }).cards).toHaveLength(0);
     });
   });
 });

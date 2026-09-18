@@ -14,3 +14,4 @@ export * from './move.js';
 export * from './realtime.js';
 export * from './audit.js';
 export * from './api.js';
+export * from './query.js';

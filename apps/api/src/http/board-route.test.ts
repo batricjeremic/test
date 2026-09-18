@@ -9,7 +9,7 @@ import {
   type TestHarness,
 } from './test-support.js';
 
-const sprintUrl = (query = 'window=current'): string =>
+const sprintUrl = (query = 'mode=each-team-current'): string =>
   `/api/boards/${TEST_BOARD_ID}/sprint?${query}`;
 
 const withBoard = async (
@@ -114,7 +114,10 @@ describe('GET /api/boards/:boardId/sprint', () => {
 
   it('honours the filter set', async () => {
     await withBoard(async (harness) => {
-      const snapshot = await load(harness, 'window=current&projectIds=Data');
+      const snapshot = await load(
+        harness,
+        'mode=each-team-current&projects=Data',
+      );
 
       expect(snapshot.cards.map((card) => card.workItemId)).toEqual([201]);
       expect(snapshot.filters.projectIds).toEqual(['Data']);
@@ -126,7 +129,7 @@ describe('GET /api/boards/:boardId/sprint', () => {
       await load(harness);
       const named = await load(
         harness,
-        'window=named-iteration&iterationPath=Delivery%5CSprint%201',
+        'mode=named-iteration&iteration=Delivery%5CSprint%201',
       );
 
       expect(named.cache.hit).toBe(false);
@@ -142,7 +145,7 @@ describe('GET /api/boards/:boardId/sprint', () => {
   it('rejects a date window whose end precedes its start', async () => {
     await withBoard(async (harness) => {
       const response = await harness.app.inject({
-        url: sprintUrl('window=date-window&start=2026-09-20&end=2026-09-01'),
+        url: sprintUrl('mode=date-window&start=2026-09-20&end=2026-09-01'),
         headers: bearer('reader-token'),
       });
 
