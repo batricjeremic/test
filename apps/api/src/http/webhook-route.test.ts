@@ -105,3 +105,48 @@ describe('POST /api/hooks/workitem-updated', () => {
     }
   });
 });
+
+/**
+ * Nothing in the service ever called `markSubscribed`, so a board
+ * reported `service-hooks-missing` forever — even with the subscription
+ * created in Azure DevOps and delivering successfully. The delivery is
+ * the proof, and the only one available: listing subscriptions needs a
+ * scope the read-only service token does not carry.
+ */
+describe('learning that a project has a service hook', () => {
+  it('marks the project subscribed when a delivery arrives', async () => {
+    await withHook(async (harness) => {
+      expect(harness.container.hooks.has('Delivery')).toBe(false);
+
+      const response = await harness.app.inject({
+        method: 'POST',
+        url: WORK_ITEM_HOOK_PATH,
+        headers: basic(),
+        payload: {
+          ...event(101),
+          subscriptionId: 'sub-1',
+          resourceContainers: { project: { id: 'Delivery' } },
+        },
+      });
+
+      expect(response.statusCode).toBe(202);
+      expect(harness.container.hooks.has('Delivery')).toBe(true);
+    });
+  });
+
+  it('stays unsubscribed when the delivery names no subscription', async () => {
+    await withHook(async (harness) => {
+      await harness.app.inject({
+        method: 'POST',
+        url: WORK_ITEM_HOOK_PATH,
+        headers: basic(),
+        payload: {
+          ...event(101),
+          resourceContainers: { project: { id: 'Delivery' } },
+        },
+      });
+
+      expect(harness.container.hooks.has('Delivery')).toBe(false);
+    });
+  });
+});

@@ -30,6 +30,7 @@ import { toAppError, UnauthorizedError, ValidationError } from '../errors.js';
 import type { CallOptions, Logger } from '../ports.js';
 import type { PublishDeltaInput } from './hub.js';
 import type { RealtimeEnvelope } from '@eg/shared';
+import type { ServiceHookRegistry } from './status.js';
 import { verifyWebhookRequest, type WebhookAuth } from './verify.js';
 
 /**
@@ -64,6 +65,12 @@ export interface WorkItemUpdatedDeps {
    * is logged at warn rather than passed over.
    */
   readonly cards?: WebhookCardLookup;
+  /**
+   * Optional. Given it, a delivery teaches the service that the project's
+   * service hook exists, which is what turns the board's realtime status
+   * from "polling, hooks missing" into "live".
+   */
+  readonly hooks?: Pick<ServiceHookRegistry, 'markSubscribed'>;
 }
 
 export interface WebhookProcessResult {
@@ -270,6 +277,16 @@ export function acceptWorkItemUpdated(
   }
 
   const event = parsed.data;
+
+  // A delivery is the only proof that matters: a subscription that exists
+  // but cannot reach us is worse than none. Azure DevOps will not tell us
+  // its subscriptions without a scope the read-only service token does
+  // not carry, so the service learns from being called.
+  const projectId = event.resourceContainers?.project?.id;
+  if (projectId !== undefined && event.subscriptionId !== undefined) {
+    deps.hooks?.markSubscribed(projectId, event.subscriptionId);
+  }
+
   queue.run(options.traceId, async () => {
     await processWorkItemUpdated(event, deps, options);
   });

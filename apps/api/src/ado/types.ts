@@ -481,6 +481,14 @@ export type AdoResourceContainers = z.infer<typeof adoResourceContainersSchema>;
 export const adoWorkItemUpdatedEventSchema = z.object({
   id: z.string().optional(),
   eventType: z.literal('workitem.updated'),
+  /**
+   * Which subscription delivered this. Azure DevOps sends it on every
+   * notification, and it is how the service learns that a project's hook
+   * exists at all — nothing else tells it, and a board that cannot tell
+   * reports itself as polling forever.
+   */
+  subscriptionId: z.string().optional(),
+  notificationId: z.number().int().optional(),
   publisherId: z.string().optional(),
   resource: adoWorkItemUpdatedResourceSchema,
   resourceVersion: z.string().optional(),

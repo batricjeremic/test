@@ -226,6 +226,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         invalidator: container.invalidator,
         publisher: container.deltas,
         cards: services.cards,
+        hooks: container.hooks,
       },
     });
   } else {
